@@ -13,7 +13,10 @@ const queryClient = new QueryClient();
 
 function MainSite() {
   return (
-    <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
+    <div
+      className="min-h-screen text-foreground overflow-x-hidden"
+      style={{ backgroundColor: "#07111f" }}
+    >
       <Nav />
       <Hero />
       <Services />

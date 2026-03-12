@@ -49,7 +49,7 @@ export function Nav() {
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         scrolled
-          ? "bg-background/95 backdrop-blur-md border-b border-border shadow-deep"
+          ? "bg-white/95 backdrop-blur-md border-b border-border shadow-sm"
           : "bg-transparent"
       }`}
     >
@@ -62,14 +62,20 @@ export function Nav() {
             data-ocid="nav.link"
             onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
           >
-            <div className="w-8 h-8 bg-primary rounded-sm flex items-center justify-center group-hover:scale-110 transition-transform">
-              <Zap
-                className="w-5 h-5 text-primary-foreground"
-                fill="currentColor"
-              />
+            <div
+              className="w-8 h-8 rounded-sm flex items-center justify-center group-hover:scale-110 transition-transform"
+              style={{ background: scrolled ? "#1a56db" : "#f97316" }}
+            >
+              <Zap className="w-5 h-5 text-white" fill="currentColor" />
             </div>
-            <span className="font-display font-800 text-xl tracking-tight">
-              Racket<span className="text-primary">Fix</span>
+            <span
+              className="font-display font-800 text-xl tracking-tight"
+              style={{ color: scrolled ? "#1e293b" : "#ffffff" }}
+            >
+              Racket
+              <span style={{ color: scrolled ? "#1a56db" : "#f97316" }}>
+                Fix
+              </span>
             </span>
           </button>
 
@@ -81,7 +87,10 @@ export function Nav() {
                 key={link.href}
                 data-ocid={`nav.${link.label.toLowerCase().replace(/ /g, "-")}.link`}
                 onClick={() => handleNavClick(link.href)}
-                className="px-4 py-2 text-sm font-body font-500 text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-secondary"
+                className="px-4 py-2 text-sm font-body font-500 transition-colors rounded-md"
+                style={{
+                  color: scrolled ? "#64748b" : "rgba(255,255,255,0.85)",
+                }}
               >
                 {link.label}
               </button>
@@ -92,7 +101,8 @@ export function Nav() {
             <Button
               variant="ghost"
               size="sm"
-              className="font-body font-500 gap-1.5 text-muted-foreground hover:text-foreground text-xs"
+              className="font-body font-500 gap-1.5 text-xs"
+              style={{ color: scrolled ? "#64748b" : "rgba(255,255,255,0.8)" }}
               data-ocid="nav.admin_button"
               onClick={() => {
                 window.location.href = "/admin";
@@ -105,6 +115,13 @@ export function Nav() {
               variant="outline"
               size="sm"
               className="font-body font-600 gap-2"
+              style={{
+                borderColor: scrolled ? "#e2e8f0" : "rgba(255,255,255,0.5)",
+                color: scrolled ? "#1e293b" : "#ffffff",
+                backgroundColor: scrolled
+                  ? "transparent"
+                  : "rgba(255,255,255,0.15)",
+              }}
               data-ocid="nav.secondary_button"
               onClick={handleShare}
             >
@@ -113,7 +130,8 @@ export function Nav() {
             </Button>
             <Button
               size="sm"
-              className="bg-primary text-primary-foreground font-display font-700 hover:bg-primary/90 glow-lime"
+              className="font-display font-700 text-white"
+              style={{ background: "#f97316", border: "none" }}
               data-ocid="nav.primary_button"
               onClick={() => handleNavClick("#contact")}
             >
@@ -124,7 +142,8 @@ export function Nav() {
           {/* Mobile menu toggle */}
           <button
             type="button"
-            className="md:hidden p-2 rounded-md text-foreground hover:bg-secondary"
+            className="md:hidden p-2 rounded-md"
+            style={{ color: scrolled ? "#1e293b" : "#ffffff" }}
             data-ocid="nav.toggle"
             onClick={() => setMobileOpen((v) => !v)}
             aria-label="Toggle menu"
@@ -145,7 +164,7 @@ export function Nav() {
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.2 }}
-            className="md:hidden bg-card border-b border-border overflow-hidden"
+            className="md:hidden bg-white border-b border-border overflow-hidden"
           >
             <div className="container px-4 py-4 flex flex-col gap-1">
               {navLinks.map((link) => (
@@ -179,7 +198,8 @@ export function Nav() {
                 {shared ? "Copied!" : "Share"}
               </Button>
               <Button
-                className="mt-1 bg-primary text-primary-foreground font-display font-700"
+                className="mt-1 font-display font-700 text-white"
+                style={{ background: "#f97316", border: "none" }}
                 onClick={() => handleNavClick("#contact")}
               >
                 Book Repair

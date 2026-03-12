@@ -47,7 +47,7 @@ export function ContactUs() {
     <section
       id="contact-us"
       data-ocid="contact.section"
-      className="py-20 bg-background"
+      className="py-20 bg-white"
     >
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div
@@ -97,7 +97,7 @@ export function ContactUs() {
                 key={c.label}
                 variants={cardVariants}
                 data-ocid={c.ocid}
-                className="group relative rounded-2xl border border-border bg-card p-7 flex flex-col items-center text-center hover:border-primary/50 transition-colors"
+                className="group relative rounded-2xl border border-border bg-white p-7 flex flex-col items-center text-center hover:border-primary/50 transition-colors shadow-sm"
               >
                 {c.href ? (
                   <a

@@ -31,7 +31,7 @@ const services = [
 
 export function Services() {
   return (
-    <section id="services" className="py-24 lg:py-32 bg-background">
+    <section id="services" className="py-24 lg:py-32 bg-white">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div
           className="mb-16"
@@ -46,7 +46,7 @@ export function Services() {
           <h2 className="font-display text-4xl sm:text-5xl lg:text-6xl font-800 tracking-tighter leading-none">
             Our Repair
             <br />
-            <span className="text-gradient-lime">Services</span>
+            <span className="text-gradient-primary">Services</span>
           </h2>
         </motion.div>
 
@@ -60,7 +60,7 @@ export function Services() {
               transition={{ duration: 0.55, delay: i * 0.12 }}
             >
               <Card
-                className="bg-card border-border h-full card-hover cursor-default"
+                className="bg-white border-border h-full card-hover cursor-default border-t-2 border-t-primary"
                 data-ocid={`services.item.${i + 1}`}
               >
                 <CardContent className="p-6 pt-7">

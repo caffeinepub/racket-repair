@@ -30,10 +30,10 @@ export function HowItWorks() {
     <section
       id="how-it-works"
       className="py-24 lg:py-32 relative overflow-hidden"
-      style={{ background: "oklch(0.11 0.04 255)" }}
+      style={{ background: "#f0f4ff" }}
     >
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
-      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
       <div className="absolute -left-32 top-1/2 -translate-y-1/2 w-64 h-64 rounded-full bg-primary/5 blur-3xl pointer-events-none" />
 
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -56,7 +56,7 @@ export function HowItWorks() {
 
         <div className="grid md:grid-cols-3 gap-8 lg:gap-12 relative">
           <div
-            className="hidden md:block absolute top-10 left-1/3 right-1/3 h-px bg-gradient-to-r from-primary/40 to-primary/40"
+            className="hidden md:block absolute top-10 left-1/3 right-1/3 h-px bg-gradient-to-r from-primary/30 to-primary/30"
             style={{ left: "16.67%", right: "16.67%" }}
           />
 
@@ -71,7 +71,7 @@ export function HowItWorks() {
             >
               <div className="flex flex-col items-start">
                 <div className="flex items-center gap-4 mb-6">
-                  <div className="relative w-20 h-20 rounded-2xl bg-background flex items-center justify-center border border-border flex-shrink-0">
+                  <div className="relative w-20 h-20 rounded-2xl bg-white flex items-center justify-center border border-border flex-shrink-0 shadow-sm">
                     <step.icon className="w-8 h-8 text-primary" />
                     <span className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-display font-800 flex items-center justify-center">
                       {i + 1}

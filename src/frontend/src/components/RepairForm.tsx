@@ -45,9 +45,9 @@ export function RepairForm() {
     <section
       id="contact"
       className="py-24 lg:py-32 relative overflow-hidden"
-      style={{ background: "oklch(0.13 0.04 255)" }}
+      style={{ background: "#f0f4ff" }}
     >
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
       <div className="absolute -right-32 top-1/2 -translate-y-1/2 w-72 h-72 rounded-full bg-primary/5 blur-3xl pointer-events-none" />
 
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -103,7 +103,7 @@ export function RepairForm() {
           >
             {isSuccess ? (
               <div
-                className="bg-card border border-primary/40 rounded-2xl p-10 text-center"
+                className="bg-card border border-primary/30 rounded-2xl p-10 text-center"
                 data-ocid="form.success_state"
               >
                 <CheckCircle2 className="w-16 h-16 text-primary mx-auto mb-4" />
@@ -126,7 +126,7 @@ export function RepairForm() {
             ) : (
               <form
                 onSubmit={handleSubmit}
-                className="bg-card border border-border rounded-2xl p-8 space-y-5"
+                className="bg-white border border-border rounded-2xl p-8 space-y-5 shadow-sm"
               >
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -237,7 +237,12 @@ export function RepairForm() {
                 <Button
                   type="submit"
                   disabled={isPending}
-                  className="w-full bg-primary text-primary-foreground font-display font-700 text-base py-6 glow-lime hover:bg-primary/90"
+                  className="w-full font-display font-700 text-base py-6 hover:opacity-90 transition-opacity"
+                  style={{
+                    background: "#f97316",
+                    color: "#ffffff",
+                    border: "none",
+                  }}
                   data-ocid="form.submit_button"
                 >
                   {isPending ? (
