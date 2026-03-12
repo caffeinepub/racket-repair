@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Menu, Share2, X, Zap } from "lucide-react";
+import { Lock, Menu, Share2, X, Zap } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
 
@@ -88,7 +88,19 @@ export function Nav() {
             ))}
           </nav>
 
-          <div className="hidden md:flex items-center gap-3">
+          <div className="hidden md:flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="font-body font-500 gap-1.5 text-muted-foreground hover:text-foreground text-xs"
+              data-ocid="nav.admin_button"
+              onClick={() => {
+                window.location.href = "/admin";
+              }}
+            >
+              <Lock className="w-3.5 h-3.5" />
+              Admin
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -147,8 +159,19 @@ export function Nav() {
                 </button>
               ))}
               <Button
+                variant="ghost"
+                className="mt-2 font-body font-500 gap-2 text-muted-foreground justify-start"
+                data-ocid="nav.admin_button"
+                onClick={() => {
+                  window.location.href = "/admin";
+                }}
+              >
+                <Lock className="w-4 h-4" />
+                Admin Login
+              </Button>
+              <Button
                 variant="outline"
-                className="mt-2 font-body font-600 gap-2"
+                className="font-body font-600 gap-2"
                 data-ocid="nav.share_button"
                 onClick={handleShare}
               >

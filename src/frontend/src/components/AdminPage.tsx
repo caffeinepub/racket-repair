@@ -9,7 +9,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useGetRepairRequests } from "@/hooks/useQueries";
-import { Inbox, Loader2, LogOut, ShieldCheck } from "lucide-react";
+import { Inbox, Loader2, LogOut, Printer, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { AdminLogin } from "./AdminLogin";
 
@@ -45,8 +45,118 @@ export function AdminPage() {
 function AdminDashboard({ onLogout }: { onLogout: () => void }) {
   const { data: requests, isLoading, isError } = useGetRepairRequests();
 
+  function handlePrint() {
+    window.print();
+  }
+
+  const generatedDate = new Date().toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
   return (
     <div className="min-h-screen bg-background text-foreground">
+      {/* Print styles — only active during window.print() */}
+      <style>{`
+        @media print {
+          body * { visibility: hidden !important; }
+          #print-statement, #print-statement * { visibility: visible !important; }
+          #print-statement {
+            position: fixed !important;
+            display: block !important;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 24px;
+            background: white;
+            color: #111;
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+          }
+          #print-statement table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 16px;
+          }
+          #print-statement th, #print-statement td {
+            border: 1px solid #ccc;
+            padding: 6px 10px;
+            text-align: left;
+            font-size: 11px;
+            word-break: break-word;
+          }
+          #print-statement th {
+            background: #f0f0f0;
+            font-weight: 700;
+            color: #333;
+          }
+          #print-statement tr:nth-child(even) td { background: #fafafa; }
+          .print-header { margin-bottom: 8px; }
+          .print-title {
+            font-size: 20px;
+            font-weight: 800;
+            color: #111;
+          }
+          .print-meta {
+            font-size: 11px;
+            color: #555;
+            margin-top: 2px;
+          }
+          .print-footer {
+            margin-top: 16px;
+            font-size: 11px;
+            color: #555;
+            border-top: 1px solid #ddd;
+            padding-top: 8px;
+          }
+        }
+      `}</style>
+
+      {/* Hidden print statement — made visible only during print via CSS */}
+      <div id="print-statement" style={{ display: "none" }} aria-hidden="true">
+        <div className="print-header">
+          <div className="print-title">RacketFix &#8212; Repair Statement</div>
+          <div className="print-meta">Generated: {generatedDate}</div>
+          <div className="print-meta">
+            Address: 48-14-61 Beside Ramachandra Brothers, Near Ramatalkies,
+            Visakhapatnam 530016
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Name</th>
+              <th>Phone</th>
+              <th>Email</th>
+              <th>Racket Brand</th>
+              <th>Damage Description</th>
+              <th>Date Submitted</th>
+            </tr>
+          </thead>
+          <tbody>
+            {requests?.map((req, i) => (
+              <tr key={`${String(req.submissionTimestamp)}-${req.name}`}>
+                <td>{i + 1}</td>
+                <td>{req.name}</td>
+                <td>{req.phone}</td>
+                <td>{req.email}</td>
+                <td>{req.racketBrand}</td>
+                <td>{req.damageDescription}</td>
+                <td>{formatTimestamp(req.submissionTimestamp)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="print-footer">
+          Total Requests: {requests?.length ?? 0} &nbsp;|&nbsp; RacketFix,
+          Visakhapatnam &#8212; Ph: 9440790818
+        </div>
+      </div>
+
       {/* Header */}
       <header className="border-b border-border bg-card sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
@@ -74,7 +184,7 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
 
       <main className="max-w-7xl mx-auto px-4 py-8">
         {/* Stats bar */}
-        <div className="mb-6 flex items-center justify-between">
+        <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
           <div>
             <h1 className="font-display text-2xl font-bold text-foreground">
               Repair Requests
@@ -83,12 +193,26 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
               All customer bookings submitted through the website
             </p>
           </div>
-          {!isLoading && !isError && (
-            <Badge className="bg-primary/15 text-primary border-primary/25 text-sm px-3 py-1">
-              {requests?.length ?? 0} request
-              {(requests?.length ?? 0) !== 1 ? "s" : ""} received
-            </Badge>
-          )}
+          <div className="flex items-center gap-3">
+            {!isLoading && !isError && (
+              <Badge className="bg-primary/15 text-primary border-primary/25 text-sm px-3 py-1">
+                {requests?.length ?? 0} request
+                {(requests?.length ?? 0) !== 1 ? "s" : ""} received
+              </Badge>
+            )}
+            {!isLoading && !isError && requests && requests.length > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handlePrint}
+                className="gap-2 border-primary/40 text-primary hover:bg-primary/10"
+                data-ocid="admin.print_button"
+              >
+                <Printer className="w-4 h-4" />
+                Print Statement
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Loading */}
