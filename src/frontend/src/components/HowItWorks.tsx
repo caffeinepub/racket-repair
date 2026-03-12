@@ -30,9 +30,8 @@ export function HowItWorks() {
     <section
       id="how-it-works"
       className="py-24 lg:py-32 relative overflow-hidden"
-      style={{ background: "oklch(0.13 0.015 145)" }}
+      style={{ background: "oklch(0.11 0.04 255)" }}
     >
-      {/* Decorative accent */}
       <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
       <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
       <div className="absolute -left-32 top-1/2 -translate-y-1/2 w-64 h-64 rounded-full bg-primary/5 blur-3xl pointer-events-none" />
@@ -51,12 +50,11 @@ export function HowItWorks() {
           <h2 className="font-display text-4xl sm:text-5xl lg:text-6xl font-800 tracking-tighter leading-none">
             How It
             <br />
-            <span className="text-gradient-lime">Works</span>
+            <span className="text-gradient-primary">Works</span>
           </h2>
         </motion.div>
 
         <div className="grid md:grid-cols-3 gap-8 lg:gap-12 relative">
-          {/* Connector line */}
           <div
             className="hidden md:block absolute top-10 left-1/3 right-1/3 h-px bg-gradient-to-r from-primary/40 to-primary/40"
             style={{ left: "16.67%", right: "16.67%" }}

@@ -45,14 +45,13 @@ export function RepairForm() {
     <section
       id="contact"
       className="py-24 lg:py-32 relative overflow-hidden"
-      style={{ background: "oklch(0.15 0.012 265)" }}
+      style={{ background: "oklch(0.13 0.04 255)" }}
     >
       <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
       <div className="absolute -right-32 top-1/2 -translate-y-1/2 w-72 h-72 rounded-full bg-primary/5 blur-3xl pointer-events-none" />
 
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid lg:grid-cols-2 gap-16 items-start">
-          {/* Left copy */}
           <motion.div
             initial={{ opacity: 0, x: -32 }}
             whileInView={{ opacity: 1, x: 0 }}
@@ -65,7 +64,7 @@ export function RepairForm() {
             <h2 className="font-display text-4xl sm:text-5xl lg:text-6xl font-800 tracking-tighter leading-none mb-6">
               Book Your
               <br />
-              <span className="text-gradient-lime">Repair</span>
+              <span className="text-gradient-primary">Repair</span>
             </h2>
             <p className="text-muted-foreground font-body text-lg leading-relaxed mb-8">
               Submit your repair request and we'll get back to you within 2
@@ -96,7 +95,6 @@ export function RepairForm() {
             </div>
           </motion.div>
 
-          {/* Form */}
           <motion.div
             initial={{ opacity: 0, x: 32 }}
             whileInView={{ opacity: 1, x: 0 }}
@@ -169,7 +167,6 @@ export function RepairForm() {
                     />
                   </div>
                 </div>
-
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label
@@ -209,7 +206,6 @@ export function RepairForm() {
                     />
                   </div>
                 </div>
-
                 <div className="space-y-2">
                   <Label
                     htmlFor="damageDescription"
@@ -229,7 +225,6 @@ export function RepairForm() {
                     data-ocid="form.textarea"
                   />
                 </div>
-
                 {isError && (
                   <div
                     className="flex items-center gap-2 text-destructive text-sm font-body"
@@ -239,7 +234,6 @@ export function RepairForm() {
                     <span>Something went wrong. Please try again.</span>
                   </div>
                 )}
-
                 <Button
                   type="submit"
                   disabled={isPending}
@@ -255,7 +249,6 @@ export function RepairForm() {
                     "Submit Repair Request"
                   )}
                 </Button>
-
                 {isPending && (
                   <div className="text-center" data-ocid="form.loading_state">
                     <p className="text-xs text-muted-foreground font-body">
