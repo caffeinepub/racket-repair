@@ -18,59 +18,63 @@
 
 @layer base {
   :root {
-    /* Premium deep navy/indigo dark theme */
-    --background: 0.1 0.025 260;
-    --foreground: 0.96 0.006 240;
+    /* Deep dark with slight green tint — sporty & premium */
+    --background: 0.09 0.008 145;
+    --foreground: 0.96 0.006 100;
 
-    --card: 0.15 0.022 260;
-    --card-foreground: 0.96 0.006 240;
+    --card: 0.13 0.012 145;
+    --card-foreground: 0.96 0.006 100;
 
-    --popover: 0.15 0.022 260;
-    --popover-foreground: 0.96 0.006 240;
+    --popover: 0.13 0.012 145;
+    --popover-foreground: 0.96 0.006 100;
 
-    /* Vibrant electric cyan-blue */
-    --primary: 0.72 0.22 230;
-    --primary-foreground: 0.06 0.015 240;
+    /* Vibrant lime green — sporty */
+    --primary: 0.82 0.22 140;
+    --primary-foreground: 0.08 0.02 140;
 
-    --secondary: 0.2 0.02 260;
-    --secondary-foreground: 0.85 0.008 240;
+    --secondary: 0.16 0.015 145;
+    --secondary-foreground: 0.85 0.01 100;
 
-    --muted: 0.22 0.018 260;
-    --muted-foreground: 0.6 0.014 255;
+    --muted: 0.18 0.012 145;
+    --muted-foreground: 0.58 0.018 120;
 
-    /* Warm amber/gold accent */
-    --accent: 0.75 0.18 55;
-    --accent-foreground: 0.08 0.015 55;
+    /* Warm amber accent */
+    --accent: 0.78 0.18 65;
+    --accent-foreground: 0.08 0.02 65;
 
     --destructive: 0.55 0.22 27;
     --destructive-foreground: 0.98 0.005 80;
 
-    --border: 0.25 0.02 260;
-    --input: 0.25 0.02 260;
-    --ring: 0.72 0.22 230;
+    --border: 0.22 0.015 145;
+    --input: 0.22 0.015 145;
+    --ring: 0.82 0.22 140;
 
     --radius: 0.375rem;
 
-    --chart-1: 0.72 0.22 230;
-    --chart-2: 0.75 0.18 55;
+    --chart-1: 0.82 0.22 140;
+    --chart-2: 0.78 0.18 65;
     --chart-3: 0.65 0.18 190;
     --chart-4: 0.7 0.15 300;
     --chart-5: 0.6 0.2 160;
 
-    --sidebar: 0.12 0.022 260;
-    --sidebar-foreground: 0.96 0.006 240;
-    --sidebar-primary: 0.72 0.22 230;
-    --sidebar-primary-foreground: 0.06 0.015 240;
-    --sidebar-accent: 0.2 0.02 260;
-    --sidebar-accent-foreground: 0.85 0.008 240;
-    --sidebar-border: 0.25 0.02 260;
-    --sidebar-ring: 0.72 0.22 230;
+    --sidebar: 0.11 0.01 145;
+    --sidebar-foreground: 0.96 0.006 100;
+    --sidebar-primary: 0.82 0.22 140;
+    --sidebar-primary-foreground: 0.08 0.02 140;
+    --sidebar-accent: 0.16 0.015 145;
+    --sidebar-accent-foreground: 0.85 0.01 100;
+    --sidebar-border: 0.22 0.015 145;
+    --sidebar-ring: 0.82 0.22 140;
   }
 }
 
 @layer base {
   * {
     @apply border-border;
+  }
+  html,
+  body {
+    background-color: oklch(0.09 0.008 145);
   }
   body {
     @apply bg-background text-foreground font-body;
@@ -90,20 +94,19 @@
   .text-gradient-primary {
     background: linear-gradient(
       135deg,
-      oklch(0.72 0.22 230),
-      oklch(0.65 0.2 200)
+      oklch(0.82 0.22 140),
+      oklch(0.72 0.2 160)
     );
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
-  /* Keep old name as alias for backward compat */
   .text-gradient-lime {
     background: linear-gradient(
       135deg,
-      oklch(0.72 0.22 230),
-      oklch(0.65 0.2 200)
+      oklch(0.82 0.22 140),
+      oklch(0.72 0.2 160)
     );
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -131,7 +134,7 @@
   }
 
   .glow-lime {
-    box-shadow: 0 0 40px oklch(0.72 0.22 230 / 0.35);
+    box-shadow: 0 0 40px oklch(0.82 0.22 140 / 0.4);
   }
 
   .card-hover {
@@ -140,6 +143,6 @@
   .card-hover:hover {
     transform: translateY(-4px);
     box-shadow: 0 20px 60px oklch(0 0 0 / 0.4), 0 0 30px
-      oklch(0.72 0.22 230 / 0.15);
+      oklch(0.82 0.22 140 / 0.15);
   }
 }

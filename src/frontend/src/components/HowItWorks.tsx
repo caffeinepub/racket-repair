@@ -30,7 +30,7 @@ export function HowItWorks() {
     <section
       id="how-it-works"
       className="py-24 lg:py-32 relative overflow-hidden"
-      style={{ background: "oklch(0.15 0.012 265)" }}
+      style={{ background: "oklch(0.13 0.015 145)" }}
     >
       {/* Decorative accent */}
       <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />

@@ -7,7 +7,7 @@ export function Footer() {
   return (
     <footer
       className="relative border-t border-border"
-      style={{ background: "oklch(0.1 0.006 265)" }}
+      style={{ background: "oklch(0.07 0.008 145)" }}
     >
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="grid md:grid-cols-3 gap-10 mb-12">
