@@ -8,6 +8,7 @@ export interface None {
 }
 export type Option<T> = Some<T> | None;
 export interface RepairRequest {
+    id: bigint;
     damageDescription: string;
     submissionTimestamp: Time;
     name: string;
@@ -17,6 +18,8 @@ export interface RepairRequest {
 }
 export type Time = bigint;
 export interface backendInterface {
+    deleteRepairRequest(id: bigint): Promise<boolean>;
     getAllRepairRequests(): Promise<Array<RepairRequest>>;
     submitRepairRequest(name: string, email: string, phone: string, racketBrand: string, damageDescription: string): Promise<void>;
+    updateRepairRequest(id: bigint, name: string, email: string, phone: string, racketBrand: string, damageDescription: string): Promise<boolean>;
 }

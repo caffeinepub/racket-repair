@@ -1,7 +1,3 @@
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { AlertCircle, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 
@@ -25,77 +21,183 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="flex justify-center mb-6">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="w-8 h-8 text-primary" />
-            <span className="font-display text-2xl font-bold text-primary">
-              RacketFix
-            </span>
-          </div>
+    <div
+      style={{
+        backgroundColor: "#eef2ff",
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "16px",
+        fontFamily: "Arial, sans-serif",
+      }}
+    >
+      <div style={{ width: "100%", maxWidth: "400px" }}>
+        {/* Logo */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            marginBottom: "24px",
+            alignItems: "center",
+            gap: "8px",
+          }}
+        >
+          <ShieldCheck style={{ color: "#1a56db", width: 32, height: 32 }} />
+          <span
+            style={{ color: "#1a56db", fontWeight: 800, fontSize: "1.5rem" }}
+          >
+            RacketFix
+          </span>
         </div>
-        <Card className="border-border bg-card">
-          <CardHeader className="text-center pb-2">
-            <CardTitle className="font-display text-3xl text-foreground">
+
+        {/* Card */}
+        <div
+          style={{
+            backgroundColor: "#ffffff",
+            border: "1px solid #c7d8f5",
+            borderRadius: "12px",
+            padding: "32px",
+            boxShadow: "0 4px 24px rgba(26,86,219,0.12)",
+          }}
+        >
+          <div style={{ textAlign: "center", marginBottom: "24px" }}>
+            <h1
+              style={{
+                color: "#0f2d6e",
+                fontWeight: 800,
+                fontSize: "1.8rem",
+                margin: "0 0 4px 0",
+              }}
+            >
               Admin Login
-            </CardTitle>
-            <p className="text-muted-foreground text-sm mt-1">
+            </h1>
+            <p style={{ color: "#5c7aaa", fontSize: "0.9rem", margin: 0 }}>
               Sign in to view repair bookings
             </p>
-          </CardHeader>
-          <CardContent className="pt-4">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="username" className="text-foreground">
-                  Username
-                </Label>
-                <Input
-                  id="username"
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Enter username"
-                  className="bg-secondary border-border text-foreground placeholder:text-muted-foreground"
-                  data-ocid="admin.input"
-                  autoComplete="username"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="password" className="text-foreground">
-                  Password
-                </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter password"
-                  className="bg-secondary border-border text-foreground placeholder:text-muted-foreground"
-                  data-ocid="admin.input"
-                  autoComplete="current-password"
-                />
-              </div>
-              {error && (
-                <div
-                  className="flex items-center gap-2 text-destructive text-sm bg-destructive/10 border border-destructive/30 rounded-md px-3 py-2"
-                  data-ocid="admin.error_state"
-                >
-                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                  {error}
-                </div>
-              )}
-              <Button
-                type="submit"
-                className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-semibold mt-2"
-                data-ocid="admin.submit_button"
+          </div>
+
+          <form onSubmit={handleSubmit}>
+            <div style={{ marginBottom: "16px" }}>
+              <label
+                htmlFor="username"
+                style={{
+                  display: "block",
+                  color: "#0f2d6e",
+                  fontWeight: 600,
+                  fontSize: "0.9rem",
+                  marginBottom: "6px",
+                }}
               >
-                Sign In
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-        <p className="text-center text-muted-foreground text-xs mt-4">
+                Username
+              </label>
+              <input
+                id="username"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Enter username"
+                autoComplete="username"
+                data-ocid="admin.input"
+                style={{
+                  width: "100%",
+                  padding: "10px 14px",
+                  border: "1.5px solid #c7d8f5",
+                  borderRadius: "8px",
+                  fontSize: "1rem",
+                  color: "#0f2d6e",
+                  backgroundColor: "#f4f8ff",
+                  outline: "none",
+                  boxSizing: "border-box",
+                }}
+              />
+            </div>
+
+            <div style={{ marginBottom: "16px" }}>
+              <label
+                htmlFor="password"
+                style={{
+                  display: "block",
+                  color: "#0f2d6e",
+                  fontWeight: 600,
+                  fontSize: "0.9rem",
+                  marginBottom: "6px",
+                }}
+              >
+                Password
+              </label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter password"
+                autoComplete="current-password"
+                data-ocid="admin.input"
+                style={{
+                  width: "100%",
+                  padding: "10px 14px",
+                  border: "1.5px solid #c7d8f5",
+                  borderRadius: "8px",
+                  fontSize: "1rem",
+                  color: "#0f2d6e",
+                  backgroundColor: "#f4f8ff",
+                  outline: "none",
+                  boxSizing: "border-box",
+                }}
+              />
+            </div>
+
+            {error && (
+              <div
+                data-ocid="admin.error_state"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  color: "#dc2626",
+                  backgroundColor: "#fef2f2",
+                  border: "1px solid #fca5a5",
+                  borderRadius: "8px",
+                  padding: "10px 14px",
+                  fontSize: "0.88rem",
+                  marginBottom: "16px",
+                }}
+              >
+                <AlertCircle style={{ width: 16, height: 16, flexShrink: 0 }} />
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              data-ocid="admin.submit_button"
+              style={{
+                width: "100%",
+                padding: "12px",
+                backgroundColor: "#1a56db",
+                color: "#ffffff",
+                border: "none",
+                borderRadius: "8px",
+                fontSize: "1rem",
+                fontWeight: 700,
+                cursor: "pointer",
+                marginTop: "8px",
+              }}
+            >
+              Sign In
+            </button>
+          </form>
+        </div>
+
+        <p
+          style={{
+            textAlign: "center",
+            color: "#5c7aaa",
+            fontSize: "0.78rem",
+            marginTop: "16px",
+          }}
+        >
           Admin access only — not for customers
         </p>
       </div>

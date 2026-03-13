@@ -90,6 +90,7 @@ export class ExternalBlob {
     }
 }
 export interface RepairRequest {
+    id: bigint;
     damageDescription: string;
     submissionTimestamp: Time;
     name: string;
@@ -99,11 +100,27 @@ export interface RepairRequest {
 }
 export type Time = bigint;
 export interface backendInterface {
+    deleteRepairRequest(id: bigint): Promise<boolean>;
     getAllRepairRequests(): Promise<Array<RepairRequest>>;
     submitRepairRequest(name: string, email: string, phone: string, racketBrand: string, damageDescription: string): Promise<void>;
+    updateRepairRequest(id: bigint, name: string, email: string, phone: string, racketBrand: string, damageDescription: string): Promise<boolean>;
 }
 export class Backend implements backendInterface {
     constructor(private actor: ActorSubclass<_SERVICE>, private _uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, private _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, private processError?: (error: unknown) => never){}
+    async deleteRepairRequest(arg0: bigint): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteRepairRequest(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteRepairRequest(arg0);
+            return result;
+        }
+    }
     async getAllRepairRequests(): Promise<Array<RepairRequest>> {
         if (this.processError) {
             try {
@@ -129,6 +146,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.submitRepairRequest(arg0, arg1, arg2, arg3, arg4);
+            return result;
+        }
+    }
+    async updateRepairRequest(arg0: bigint, arg1: string, arg2: string, arg3: string, arg4: string, arg5: string): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateRepairRequest(arg0, arg1, arg2, arg3, arg4, arg5);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateRepairRequest(arg0, arg1, arg2, arg3, arg4, arg5);
             return result;
         }
     }

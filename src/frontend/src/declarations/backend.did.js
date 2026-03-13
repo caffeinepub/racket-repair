@@ -10,6 +10,7 @@ import { IDL } from '@icp-sdk/core/candid';
 
 export const Time = IDL.Int;
 export const RepairRequest = IDL.Record({
+  'id' : IDL.Nat,
   'damageDescription' : IDL.Text,
   'submissionTimestamp' : Time,
   'name' : IDL.Text,
@@ -19,10 +20,16 @@ export const RepairRequest = IDL.Record({
 });
 
 export const idlService = IDL.Service({
+  'deleteRepairRequest' : IDL.Func([IDL.Nat], [IDL.Bool], []),
   'getAllRepairRequests' : IDL.Func([], [IDL.Vec(RepairRequest)], ['query']),
   'submitRepairRequest' : IDL.Func(
       [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
       [],
+      [],
+    ),
+  'updateRepairRequest' : IDL.Func(
+      [IDL.Nat, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+      [IDL.Bool],
       [],
     ),
 });
@@ -32,6 +39,7 @@ export const idlInitArgs = [];
 export const idlFactory = ({ IDL }) => {
   const Time = IDL.Int;
   const RepairRequest = IDL.Record({
+    'id' : IDL.Nat,
     'damageDescription' : IDL.Text,
     'submissionTimestamp' : Time,
     'name' : IDL.Text,
@@ -41,10 +49,16 @@ export const idlFactory = ({ IDL }) => {
   });
   
   return IDL.Service({
+    'deleteRepairRequest' : IDL.Func([IDL.Nat], [IDL.Bool], []),
     'getAllRepairRequests' : IDL.Func([], [IDL.Vec(RepairRequest)], ['query']),
     'submitRepairRequest' : IDL.Func(
         [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
         [],
+        [],
+      ),
+    'updateRepairRequest' : IDL.Func(
+        [IDL.Nat, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+        [IDL.Bool],
         [],
       ),
   });

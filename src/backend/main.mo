@@ -1,13 +1,13 @@
 import Map "mo:core/Map";
 import Array "mo:core/Array";
-import Runtime "mo:core/Runtime";
 import Time "mo:core/Time";
 import Iter "mo:core/Iter";
-import Order "mo:core/Order";
-import Int "mo:core/Int";
+
+
 
 actor {
   type RepairRequest = {
+    id : Nat;
     name : Text;
     email : Text;
     phone : Text;
@@ -16,17 +16,12 @@ actor {
     submissionTimestamp : Time.Time;
   };
 
-  module RepairRequest {
-    public func compare(request1 : RepairRequest, request2 : RepairRequest) : Order.Order {
-      Int.compare(request1.submissionTimestamp, request2.submissionTimestamp);
-    };
-  };
-
   var nextRequestId = 0;
   let repairRequests = Map.empty<Nat, RepairRequest>();
 
   public shared ({ caller }) func submitRepairRequest(name : Text, email : Text, phone : Text, racketBrand : Text, damageDescription : Text) : async () {
     let request : RepairRequest = {
+      id = nextRequestId;
       name;
       email;
       phone;
@@ -39,6 +34,34 @@ actor {
   };
 
   public query ({ caller }) func getAllRepairRequests() : async [RepairRequest] {
-    repairRequests.values().toArray().sort();
+    repairRequests.values().toArray();
+  };
+
+  public shared ({ caller }) func updateRepairRequest(id : Nat, name : Text, email : Text, phone : Text, racketBrand : Text, damageDescription : Text) : async Bool {
+    switch (repairRequests.get(id)) {
+      case (null) { false };
+      case (?existing) {
+        let updatedRequest : RepairRequest = {
+          id;
+          name;
+          email;
+          phone;
+          racketBrand;
+          damageDescription;
+          submissionTimestamp = existing.submissionTimestamp;
+        };
+        repairRequests.add(id, updatedRequest);
+        true;
+      };
+    };
+  };
+
+  public shared ({ caller }) func deleteRepairRequest(id : Nat) : async Bool {
+    if (repairRequests.containsKey(id)) {
+      repairRequests.remove(id);
+      true;
+    } else {
+      false;
+    };
   };
 };

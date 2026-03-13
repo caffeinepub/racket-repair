@@ -45,7 +45,7 @@ export function RepairForm() {
     <section
       id="contact"
       className="py-24 lg:py-32 relative overflow-hidden"
-      style={{ background: "#f0f4ff" }}
+      style={{ background: "#ffffff" }}
     >
       <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
       <div className="absolute -right-32 top-1/2 -translate-y-1/2 w-72 h-72 rounded-full bg-primary/5 blur-3xl pointer-events-none" />
@@ -126,7 +126,7 @@ export function RepairForm() {
             ) : (
               <form
                 onSubmit={handleSubmit}
-                className="bg-white border border-border rounded-2xl p-8 space-y-5 shadow-sm"
+                className="bg-white border border-gray-100 rounded-2xl p-8 space-y-5 shadow-md"
               >
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -143,7 +143,7 @@ export function RepairForm() {
                       value={form.name}
                       onChange={handleChange}
                       required
-                      className="bg-background border-border focus:border-primary font-body"
+                      className="bg-white border-border focus:border-primary font-body"
                       data-ocid="form.input"
                     />
                   </div>
@@ -162,7 +162,7 @@ export function RepairForm() {
                       value={form.email}
                       onChange={handleChange}
                       required
-                      className="bg-background border-border focus:border-primary font-body"
+                      className="bg-white border-border focus:border-primary font-body"
                       data-ocid="form.input"
                     />
                   </div>
@@ -183,7 +183,7 @@ export function RepairForm() {
                       value={form.phone}
                       onChange={handleChange}
                       required
-                      className="bg-background border-border focus:border-primary font-body"
+                      className="bg-white border-border focus:border-primary font-body"
                       data-ocid="form.input"
                     />
                   </div>
@@ -201,7 +201,7 @@ export function RepairForm() {
                       value={form.racketBrand}
                       onChange={handleChange}
                       required
-                      className="bg-background border-border focus:border-primary font-body"
+                      className="bg-white border-border focus:border-primary font-body"
                       data-ocid="form.input"
                     />
                   </div>
@@ -221,7 +221,7 @@ export function RepairForm() {
                     onChange={handleChange}
                     required
                     rows={4}
-                    className="bg-background border-border focus:border-primary font-body resize-none"
+                    className="bg-white border-border focus:border-primary font-body resize-none"
                     data-ocid="form.textarea"
                   />
                 </div>

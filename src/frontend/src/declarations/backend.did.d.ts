@@ -11,6 +11,7 @@ import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
 export interface RepairRequest {
+  'id' : bigint,
   'damageDescription' : string,
   'submissionTimestamp' : Time,
   'name' : string,
@@ -20,10 +21,15 @@ export interface RepairRequest {
 }
 export type Time = bigint;
 export interface _SERVICE {
+  'deleteRepairRequest' : ActorMethod<[bigint], boolean>,
   'getAllRepairRequests' : ActorMethod<[], Array<RepairRequest>>,
   'submitRepairRequest' : ActorMethod<
     [string, string, string, string, string],
     undefined
+  >,
+  'updateRepairRequest' : ActorMethod<
+    [bigint, string, string, string, string, string],
+    boolean
   >,
 }
 export declare const idlService: IDL.ServiceClass;
