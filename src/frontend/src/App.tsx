@@ -4,6 +4,7 @@ import { Footer } from "@/components/Footer";
 import { Hero } from "@/components/Hero";
 import { HowItWorks } from "@/components/HowItWorks";
 import { Nav } from "@/components/Nav";
+import { QRCodeSection } from "@/components/QRCodeSection";
 import { RepairForm } from "@/components/RepairForm";
 import { Services } from "@/components/Services";
 import { Toaster } from "@/components/ui/sonner";
@@ -22,6 +23,7 @@ function MainSite() {
       <Services />
       <HowItWorks />
       <RepairForm />
+      <QRCodeSection />
       <ContactUs />
       <Footer />
     </div>
