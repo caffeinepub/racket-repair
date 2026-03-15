@@ -3,8 +3,6 @@ import Array "mo:core/Array";
 import Time "mo:core/Time";
 import Iter "mo:core/Iter";
 
-
-
 actor {
   type RepairRequest = {
     id : Nat;
@@ -16,8 +14,21 @@ actor {
     submissionTimestamp : Time.Time;
   };
 
-  var nextRequestId = 0;
+  stable var nextRequestId : Nat = 0;
+  stable var repairRequestEntries : [(Nat, RepairRequest)] = [];
+
   let repairRequests = Map.empty<Nat, RepairRequest>();
+
+  system func preupgrade() {
+    repairRequestEntries := repairRequests.entries().toArray();
+  };
+
+  system func postupgrade() {
+    for ((k, v) in repairRequestEntries.vals()) {
+      repairRequests.add(k, v);
+    };
+    repairRequestEntries := [];
+  };
 
   public shared ({ caller }) func submitRepairRequest(name : Text, email : Text, phone : Text, racketBrand : Text, damageDescription : Text) : async () {
     let request : RepairRequest = {

@@ -39,8 +39,7 @@ import { AdminLogin } from "./AdminLogin";
 
 function formatTimestamp(ts: bigint): string {
   const ms = Number(ts / 1_000_000n);
-  const date = new Date(ms);
-  return date.toLocaleString("en-IN", {
+  return new Date(ms).toLocaleString("en-IN", {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -53,17 +52,17 @@ export function AdminPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(
     () => localStorage.getItem("racketfix_admin") === "true",
   );
-
-  function handleLogout() {
-    localStorage.removeItem("racketfix_admin");
-    setIsLoggedIn(false);
-  }
-
   if (!isLoggedIn) {
     return <AdminLogin onLogin={() => setIsLoggedIn(true)} />;
   }
-
-  return <AdminDashboard onLogout={handleLogout} />;
+  return (
+    <AdminDashboard
+      onLogout={() => {
+        localStorage.removeItem("racketfix_admin");
+        setIsLoggedIn(false);
+      }}
+    />
+  );
 }
 
 function EditDialog({
@@ -87,7 +86,6 @@ function EditDialog({
     damageDescription: "",
   });
   const [saving, setSaving] = useState(false);
-
   const prevId = useRef<bigint | null>(null);
   if (request && request.id !== prevId.current) {
     prevId.current = request.id;
@@ -99,7 +97,6 @@ function EditDialog({
       damageDescription: request.damageDescription,
     });
   }
-
   async function handleSave() {
     if (!request || !actor) return;
     setSaving(true);
@@ -121,7 +118,6 @@ function EditDialog({
       setSaving(false);
     }
   }
-
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent
@@ -134,61 +130,27 @@ function EditDialog({
           </DialogTitle>
         </DialogHeader>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div>
-            <Label
-              style={{ color: "#5c7aaa", fontSize: "0.82rem", fontWeight: 600 }}
-            >
-              Name
-            </Label>
-            <Input
-              data-ocid="admin.edit.input"
-              value={form.name}
-              onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-              style={{ borderColor: "#c7d8f5", marginTop: 4 }}
-            />
-          </div>
-          <div>
-            <Label
-              style={{ color: "#5c7aaa", fontSize: "0.82rem", fontWeight: 600 }}
-            >
-              Phone
-            </Label>
-            <Input
-              value={form.phone}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, phone: e.target.value }))
-              }
-              style={{ borderColor: "#c7d8f5", marginTop: 4 }}
-            />
-          </div>
-          <div>
-            <Label
-              style={{ color: "#5c7aaa", fontSize: "0.82rem", fontWeight: 600 }}
-            >
-              Email
-            </Label>
-            <Input
-              value={form.email}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, email: e.target.value }))
-              }
-              style={{ borderColor: "#c7d8f5", marginTop: 4 }}
-            />
-          </div>
-          <div>
-            <Label
-              style={{ color: "#5c7aaa", fontSize: "0.82rem", fontWeight: 600 }}
-            >
-              Racket Brand
-            </Label>
-            <Input
-              value={form.racketBrand}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, racketBrand: e.target.value }))
-              }
-              style={{ borderColor: "#c7d8f5", marginTop: 4 }}
-            />
-          </div>
+          {(["name", "phone", "email", "racketBrand"] as const).map((field) => (
+            <div key={field}>
+              <Label
+                style={{
+                  color: "#5c7aaa",
+                  fontSize: "0.82rem",
+                  fontWeight: 600,
+                }}
+              >
+                {field.charAt(0).toUpperCase() +
+                  field.slice(1).replace(/([A-Z])/g, " $1")}
+              </Label>
+              <Input
+                value={form[field]}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, [field]: e.target.value }))
+                }
+                style={{ borderColor: "#c7d8f5", marginTop: 4 }}
+              />
+            </div>
+          ))}
           <div>
             <Label
               style={{ color: "#5c7aaa", fontSize: "0.82rem", fontWeight: 600 }}
@@ -230,12 +192,7 @@ function EditDialog({
             {saving ? (
               <>
                 <Loader2
-                  style={{
-                    width: 14,
-                    height: 14,
-                    marginRight: 6,
-                    display: "inline",
-                  }}
+                  style={{ width: 14, height: 14, marginRight: 6 }}
                   className="animate-spin"
                 />
                 Saving...
@@ -264,7 +221,6 @@ function DeleteAlertDialog({
   actor: backendInterface | null;
 }) {
   const [deleting, setDeleting] = useState(false);
-
   async function handleDelete() {
     if (!request || !actor) return;
     setDeleting(true);
@@ -279,7 +235,6 @@ function DeleteAlertDialog({
       setDeleting(false);
     }
   }
-
   return (
     <AlertDialog open={open} onOpenChange={(v) => !v && onClose()}>
       <AlertDialogContent
@@ -317,12 +272,7 @@ function DeleteAlertDialog({
             {deleting ? (
               <>
                 <Loader2
-                  style={{
-                    width: 14,
-                    height: 14,
-                    marginRight: 6,
-                    display: "inline",
-                  }}
+                  style={{ width: 14, height: 14, marginRight: 6 }}
                   className="animate-spin"
                 />
                 Deleting...
@@ -337,19 +287,39 @@ function DeleteAlertDialog({
   );
 }
 
-function timeout<T>(ms: number, promise: Promise<T>): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error(`Timed out after ${ms / 1000}s`)), ms),
-    ),
-  ]);
+async function fetchWithAutoRetry(
+  onStatus: (msg: string) => void,
+): Promise<{ actor: backendInterface; data: RepairRequest[] }> {
+  const MAX = 5;
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= MAX; attempt++) {
+    try {
+      onStatus(
+        attempt === 1
+          ? "Connecting to server..."
+          : `Reconnecting... (attempt ${attempt} of ${MAX})`,
+      );
+      const actor = await createActorWithConfig();
+      onStatus("Loading repair requests...");
+      const data = await actor.getAllRepairRequests();
+      return { actor, data };
+    } catch (err) {
+      lastError = err;
+      console.warn(`[RacketFix] Attempt ${attempt} failed:`, err);
+      if (attempt < MAX) {
+        onStatus("Connection issue. Retrying in 5 seconds...");
+        await new Promise((r) => setTimeout(r, 5000));
+      }
+    }
+  }
+  throw lastError;
 }
 
 function AdminDashboard({ onLogout }: { onLogout: () => void }) {
   const [actor, setActor] = useState<backendInterface | null>(null);
   const [requests, setRequests] = useState<RepairRequest[] | null>(null);
   const [loading, setLoading] = useState(true);
+  const [statusMsg, setStatusMsg] = useState("Connecting to server...");
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [editTarget, setEditTarget] = useState<RepairRequest | null>(null);
@@ -357,51 +327,42 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: retryCount is intentional trigger
   useEffect(() => {
     let cancelled = false;
-
     async function loadData() {
       setLoading(true);
       setError(null);
-      console.log(`[RacketFix] Loading attempt #${retryCount + 1}`);
+      setStatusMsg("Connecting to server...");
       try {
-        const a = await timeout(30000, createActorWithConfig());
+        const { actor: a, data } = await fetchWithAutoRetry((msg) => {
+          if (!cancelled) setStatusMsg(msg);
+        });
         if (cancelled) return;
         setActor(a);
-        const data = await timeout(30000, a.getAllRepairRequests());
-        if (cancelled) return;
         setRequests(data);
       } catch (err) {
         if (cancelled) return;
         const msg =
           err instanceof Error ? err.message : "Unknown error occurred";
-        console.error("Failed to load repair requests:", err);
+        console.error("[RacketFix] All attempts failed:", err);
         setError(msg);
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
-
     void loadData();
-
     return () => {
       cancelled = true;
     };
   }, [retryCount]);
 
-  function handleRetry() {
-    setActor(null);
-    setRequests(null);
-    setRetryCount((c) => c + 1);
-  }
-
   async function reloadAfterMutation() {
     if (!actor) return;
     try {
-      const data = await timeout(30000, actor.getAllRepairRequests());
+      const data = await actor.getAllRepairRequests();
       setRequests(data);
-    } catch (err) {
-      console.error("Failed to reload after mutation:", err);
+    } catch {
       toast.error("Could not refresh list — please retry.");
     }
   }
@@ -415,32 +376,21 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
   });
 
   const filteredRequests = requests?.filter((req) => {
-    const ms = Number(req.submissionTimestamp / 1_000_000n);
-    const reqDate = new Date(ms);
+    const reqDate = new Date(Number(req.submissionTimestamp / 1_000_000n));
     if (dateFrom) {
-      const from = new Date(dateFrom);
-      from.setHours(0, 0, 0, 0);
-      if (reqDate < from) return false;
+      const f = new Date(dateFrom);
+      f.setHours(0, 0, 0, 0);
+      if (reqDate < f) return false;
     }
     if (dateTo) {
-      const to = new Date(dateTo);
-      to.setHours(23, 59, 59, 999);
-      if (reqDate > to) return false;
+      const t = new Date(dateTo);
+      t.setHours(23, 59, 59, 999);
+      if (reqDate > t) return false;
     }
     return true;
   });
 
   const hasDateFilter = dateFrom !== "" || dateTo !== "";
-
-  function clearDateFilter() {
-    setDateFrom("");
-    setDateTo("");
-  }
-
-  function handlePrint() {
-    window.print();
-  }
-
   const dateRangeLabel =
     dateFrom && dateTo
       ? `${dateFrom} to ${dateTo}`
@@ -458,38 +408,19 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
         fontFamily: "Arial, sans-serif",
       }}
     >
-      {/* Print styles */}
       <style>{`
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @media print {
           body * { visibility: hidden !important; }
           #print-statement, #print-statement * { visibility: visible !important; }
-          #print-statement {
-            position: fixed !important;
-            display: block !important;
-            top: 0; left: 0; width: 100%;
-            padding: 24px;
-            background: white;
-            color: #111;
-            font-family: Arial, sans-serif;
-            font-size: 12px;
-          }
-          #print-statement table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 16px;
-          }
-          #print-statement th, #print-statement td {
-            border: 1px solid #ccc;
-            padding: 6px 10px;
-            text-align: left;
-            font-size: 11px;
-          }
+          #print-statement { position: fixed !important; display: block !important; top: 0; left: 0; width: 100%; padding: 24px; background: white; color: #111; font-family: Arial, sans-serif; font-size: 12px; }
+          #print-statement table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+          #print-statement th, #print-statement td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; font-size: 11px; }
           #print-statement th { background: #f0f0f0; font-weight: 700; }
           .print-footer { margin-top: 16px; font-size: 11px; color: #555; border-top: 1px solid #ddd; padding-top: 8px; }
         }
       `}</style>
 
-      {/* Hidden print block */}
       <div id="print-statement" style={{ display: "none" }} aria-hidden="true">
         <div style={{ marginBottom: 8 }}>
           <div style={{ fontSize: 20, fontWeight: 800 }}>
@@ -538,7 +469,6 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
         </div>
       </div>
 
-      {/* Edit Dialog */}
       <EditDialog
         request={editTarget}
         open={editTarget !== null}
@@ -546,8 +476,6 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
         onSaved={() => void reloadAfterMutation()}
         actor={actor}
       />
-
-      {/* Delete Alert Dialog */}
       <DeleteAlertDialog
         request={deleteTarget}
         open={deleteTarget !== null}
@@ -615,7 +543,6 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
         </button>
       </div>
 
-      {/* Main */}
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "32px 16px" }}>
         {/* Title row */}
         <div
@@ -678,7 +605,7 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
               filteredRequests.length > 0 && (
                 <button
                   type="button"
-                  onClick={handlePrint}
+                  onClick={() => window.print()}
                   data-ocid="admin.print_button"
                   style={{
                     display: "flex",
@@ -701,7 +628,7 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
           </div>
         </div>
 
-        {/* Date Filter Bar */}
+        {/* Date Filter */}
         {!loading && !error && (
           <div
             data-ocid="admin.date_filter.panel"
@@ -812,7 +739,10 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
               {hasDateFilter && (
                 <button
                   type="button"
-                  onClick={clearDateFilter}
+                  onClick={() => {
+                    setDateFrom("");
+                    setDateTo("");
+                  }}
                   data-ocid="admin.date_filter.cancel_button"
                   style={{
                     display: "flex",
@@ -875,10 +805,10 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
               }}
             />
             <p style={{ margin: 0, fontWeight: 600, color: "#0f2d6e" }}>
-              Loading repair requests...
+              {statusMsg}
             </p>
             <p style={{ margin: 0, fontSize: "0.85rem" }}>
-              This may take a few seconds
+              Please wait — this may take up to a minute on first load
             </p>
           </div>
         )}
@@ -900,14 +830,18 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
             }}
           >
             <p style={{ color: "#dc2626", fontWeight: 600, margin: 0 }}>
-              Failed to load repair requests.
+              Failed to load repair requests after multiple attempts.
             </p>
             <p style={{ color: "#5c7aaa", fontSize: "0.88rem", margin: 0 }}>
               {error}
             </p>
             <button
               type="button"
-              onClick={handleRetry}
+              onClick={() => {
+                setActor(null);
+                setRequests(null);
+                setRetryCount((c) => c + 1);
+              }}
               data-ocid="admin.retry_button"
               style={{
                 display: "flex",
@@ -929,7 +863,7 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
           </div>
         )}
 
-        {/* Empty (no results after filter) */}
+        {/* Empty */}
         {!loading &&
           !error &&
           (!filteredRequests || filteredRequests.length === 0) && (
@@ -962,7 +896,10 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
               {hasDateFilter && (
                 <button
                   type="button"
-                  onClick={clearDateFilter}
+                  onClick={() => {
+                    setDateFrom("");
+                    setDateTo("");
+                  }}
                   data-ocid="admin.date_filter.cancel_button"
                   style={{
                     padding: "7px 16px",
