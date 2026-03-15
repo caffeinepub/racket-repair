@@ -1,4 +1,5 @@
 import { AdminPage } from "@/components/AdminPage";
+import { BeforeAfter } from "@/components/BeforeAfter";
 import { ContactUs } from "@/components/ContactUs";
 import { Footer } from "@/components/Footer";
 import { Hero } from "@/components/Hero";
@@ -22,6 +23,7 @@ function MainSite() {
       <Hero />
       <Services />
       <HowItWorks />
+      <BeforeAfter />
       <RepairForm />
       <QRCodeSection />
       <ContactUs />
