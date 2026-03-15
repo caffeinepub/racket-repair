@@ -16,7 +16,7 @@ function MainSite() {
   return (
     <div
       className="min-h-screen text-foreground overflow-x-hidden"
-      style={{ backgroundColor: "#07111f" }}
+      style={{ backgroundColor: "#ffffff" }}
     >
       <Nav />
       <Hero />

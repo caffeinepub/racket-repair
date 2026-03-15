@@ -20,22 +20,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  useDeleteRepairRequest,
-  useGetRepairRequests,
-  useUpdateRepairRequest,
-} from "@/hooks/useQueries";
-import {
+  CalendarRange,
   Inbox,
   Loader2,
   LogOut,
   Pencil,
   Printer,
+  RefreshCw,
   ShieldCheck,
   Trash2,
+  X,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import type { RepairRequest } from "../backend.d";
+import type { RepairRequest, backendInterface } from "../backend.d";
+import { createActorWithConfig } from "../config";
 import { AdminLogin } from "./AdminLogin";
 
 function formatTimestamp(ts: bigint): string {
@@ -71,10 +70,14 @@ function EditDialog({
   request,
   open,
   onClose,
+  onSaved,
+  actor,
 }: {
   request: RepairRequest | null;
   open: boolean;
   onClose: () => void;
+  onSaved: () => void;
+  actor: backendInterface | null;
 }) {
   const [form, setForm] = useState({
     name: "",
@@ -83,12 +86,11 @@ function EditDialog({
     racketBrand: "",
     damageDescription: "",
   });
-  const updateMutation = useUpdateRepairRequest();
+  const [saving, setSaving] = useState(false);
 
-  // Sync form when request changes
-  const prevId = useState<bigint | null>(null);
-  if (request && request.id !== prevId[0]) {
-    prevId[1](request.id);
+  const prevId = useRef<bigint | null>(null);
+  if (request && request.id !== prevId.current) {
+    prevId.current = request.id;
     setForm({
       name: request.name,
       email: request.email,
@@ -98,20 +100,26 @@ function EditDialog({
     });
   }
 
-  function handleSave() {
-    if (!request) return;
-    updateMutation.mutate(
-      { id: request.id, ...form },
-      {
-        onSuccess: () => {
-          toast.success("Booking updated successfully");
-          onClose();
-        },
-        onError: () => {
-          toast.error("Failed to update booking");
-        },
-      },
-    );
+  async function handleSave() {
+    if (!request || !actor) return;
+    setSaving(true);
+    try {
+      await actor.updateRepairRequest(
+        request.id,
+        form.name,
+        form.email,
+        form.phone,
+        form.racketBrand,
+        form.damageDescription,
+      );
+      toast.success("Booking updated successfully");
+      onSaved();
+      onClose();
+    } catch {
+      toast.error("Failed to update booking");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -211,7 +219,7 @@ function EditDialog({
           <Button
             type="button"
             onClick={handleSave}
-            disabled={updateMutation.isPending}
+            disabled={saving}
             data-ocid="admin.edit.save_button"
             style={{
               backgroundColor: "#1a56db",
@@ -219,7 +227,7 @@ function EditDialog({
               border: "none",
             }}
           >
-            {updateMutation.isPending ? (
+            {saving ? (
               <>
                 <Loader2
                   style={{
@@ -246,24 +254,30 @@ function DeleteAlertDialog({
   request,
   open,
   onClose,
+  onDeleted,
+  actor,
 }: {
   request: RepairRequest | null;
   open: boolean;
   onClose: () => void;
+  onDeleted: () => void;
+  actor: backendInterface | null;
 }) {
-  const deleteMutation = useDeleteRepairRequest();
+  const [deleting, setDeleting] = useState(false);
 
-  function handleDelete() {
-    if (!request) return;
-    deleteMutation.mutate(request.id, {
-      onSuccess: () => {
-        toast.success("Booking deleted");
-        onClose();
-      },
-      onError: () => {
-        toast.error("Failed to delete booking");
-      },
-    });
+  async function handleDelete() {
+    if (!request || !actor) return;
+    setDeleting(true);
+    try {
+      await actor.deleteRepairRequest(request.id);
+      toast.success("Booking deleted");
+      onDeleted();
+      onClose();
+    } catch {
+      toast.error("Failed to delete booking");
+    } finally {
+      setDeleting(false);
+    }
   }
 
   return (
@@ -293,14 +307,14 @@ function DeleteAlertDialog({
           <AlertDialogAction
             data-ocid="admin.delete.confirm_button"
             onClick={handleDelete}
-            disabled={deleteMutation.isPending}
+            disabled={deleting}
             style={{
               backgroundColor: "#dc2626",
               color: "#ffffff",
               border: "none",
             }}
           >
-            {deleteMutation.isPending ? (
+            {deleting ? (
               <>
                 <Loader2
                   style={{
@@ -323,10 +337,74 @@ function DeleteAlertDialog({
   );
 }
 
+function timeout<T>(ms: number, promise: Promise<T>): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`Timed out after ${ms / 1000}s`)), ms),
+    ),
+  ]);
+}
+
 function AdminDashboard({ onLogout }: { onLogout: () => void }) {
-  const { data: requests, isLoading, isError } = useGetRepairRequests();
+  const [actor, setActor] = useState<backendInterface | null>(null);
+  const [requests, setRequests] = useState<RepairRequest[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
   const [editTarget, setEditTarget] = useState<RepairRequest | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<RepairRequest | null>(null);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadData() {
+      setLoading(true);
+      setError(null);
+      console.log(`[RacketFix] Loading attempt #${retryCount + 1}`);
+      try {
+        const a = await timeout(30000, createActorWithConfig());
+        if (cancelled) return;
+        setActor(a);
+        const data = await timeout(30000, a.getAllRepairRequests());
+        if (cancelled) return;
+        setRequests(data);
+      } catch (err) {
+        if (cancelled) return;
+        const msg =
+          err instanceof Error ? err.message : "Unknown error occurred";
+        console.error("Failed to load repair requests:", err);
+        setError(msg);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    void loadData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [retryCount]);
+
+  function handleRetry() {
+    setActor(null);
+    setRequests(null);
+    setRetryCount((c) => c + 1);
+  }
+
+  async function reloadAfterMutation() {
+    if (!actor) return;
+    try {
+      const data = await timeout(30000, actor.getAllRepairRequests());
+      setRequests(data);
+    } catch (err) {
+      console.error("Failed to reload after mutation:", err);
+      toast.error("Could not refresh list — please retry.");
+    }
+  }
 
   const generatedDate = new Date().toLocaleString("en-IN", {
     day: "2-digit",
@@ -336,9 +414,41 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
     minute: "2-digit",
   });
 
+  const filteredRequests = requests?.filter((req) => {
+    const ms = Number(req.submissionTimestamp / 1_000_000n);
+    const reqDate = new Date(ms);
+    if (dateFrom) {
+      const from = new Date(dateFrom);
+      from.setHours(0, 0, 0, 0);
+      if (reqDate < from) return false;
+    }
+    if (dateTo) {
+      const to = new Date(dateTo);
+      to.setHours(23, 59, 59, 999);
+      if (reqDate > to) return false;
+    }
+    return true;
+  });
+
+  const hasDateFilter = dateFrom !== "" || dateTo !== "";
+
+  function clearDateFilter() {
+    setDateFrom("");
+    setDateTo("");
+  }
+
   function handlePrint() {
     window.print();
   }
+
+  const dateRangeLabel =
+    dateFrom && dateTo
+      ? `${dateFrom} to ${dateTo}`
+      : dateFrom
+        ? `From ${dateFrom}`
+        : dateTo
+          ? `Until ${dateTo}`
+          : "All dates";
 
   return (
     <div
@@ -389,6 +499,9 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
             Generated: {generatedDate}
           </div>
           <div style={{ fontSize: 11, color: "#555" }}>
+            Date Range: {dateRangeLabel}
+          </div>
+          <div style={{ fontSize: 11, color: "#555" }}>
             Address: 48-14-61 Beside Ramachandra Brothers, Near Ramatalkies,
             Visakhapatnam 530016
           </div>
@@ -406,7 +519,7 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
             </tr>
           </thead>
           <tbody>
-            {requests?.map((req, i) => (
+            {filteredRequests?.map((req, i) => (
               <tr key={`${String(req.submissionTimestamp)}-${req.name}`}>
                 <td>{i + 1}</td>
                 <td>{req.name}</td>
@@ -420,8 +533,8 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
           </tbody>
         </table>
         <div className="print-footer">
-          Total Requests: {requests?.length ?? 0} | RacketFix, Visakhapatnam —
-          Ph: 9440790818
+          Total Requests: {filteredRequests?.length ?? 0} | RacketFix,
+          Visakhapatnam — Ph: 9440790818
         </div>
       </div>
 
@@ -430,6 +543,8 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
         request={editTarget}
         open={editTarget !== null}
         onClose={() => setEditTarget(null)}
+        onSaved={() => void reloadAfterMutation()}
+        actor={actor}
       />
 
       {/* Delete Alert Dialog */}
@@ -437,6 +552,8 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
         request={deleteTarget}
         open={deleteTarget !== null}
         onClose={() => setDeleteTarget(null)}
+        onDeleted={() => void reloadAfterMutation()}
+        actor={actor}
       />
 
       {/* Header */}
@@ -506,7 +623,7 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            marginBottom: 24,
+            marginBottom: 20,
             flexWrap: "wrap",
             gap: 12,
           }}
@@ -533,7 +650,7 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
             </p>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            {!isLoading && !isError && (
+            {!loading && !error && (
               <span
                 style={{
                   backgroundColor: "#e0eaff",
@@ -545,38 +662,198 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
                   border: "1px solid #c7d8f5",
                 }}
               >
-                {requests?.length ?? 0} request
-                {(requests?.length ?? 0) !== 1 ? "s" : ""}
+                {filteredRequests?.length ?? 0} request
+                {(filteredRequests?.length ?? 0) !== 1 ? "s" : ""}
+                {hasDateFilter &&
+                requests &&
+                filteredRequests &&
+                filteredRequests.length !== requests.length
+                  ? ` of ${requests.length}`
+                  : ""}
               </span>
             )}
-            {!isLoading && !isError && requests && requests.length > 0 && (
-              <button
-                type="button"
-                onClick={handlePrint}
-                data-ocid="admin.print_button"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "8px 16px",
-                  backgroundColor: "#ffffff",
-                  color: "#1a56db",
-                  border: "1px solid #c7d8f5",
-                  borderRadius: "8px",
-                  fontSize: "0.88rem",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                <Printer style={{ width: 16, height: 16 }} />
-                Print Statement
-              </button>
-            )}
+            {!loading &&
+              !error &&
+              filteredRequests &&
+              filteredRequests.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handlePrint}
+                  data-ocid="admin.print_button"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "8px 16px",
+                    backgroundColor: "#ffffff",
+                    color: "#1a56db",
+                    border: "1px solid #c7d8f5",
+                    borderRadius: "8px",
+                    fontSize: "0.88rem",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  <Printer style={{ width: 16, height: 16 }} />
+                  Print Statement
+                </button>
+              )}
           </div>
         </div>
 
+        {/* Date Filter Bar */}
+        {!loading && !error && (
+          <div
+            data-ocid="admin.date_filter.panel"
+            style={{
+              backgroundColor: "#ffffff",
+              border: "1px solid #c7d8f5",
+              borderRadius: "10px",
+              padding: "16px 20px",
+              marginBottom: 20,
+              display: "flex",
+              alignItems: "flex-end",
+              flexWrap: "wrap",
+              gap: 16,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                marginBottom: 2,
+              }}
+            >
+              <CalendarRange
+                style={{ color: "#1a56db", width: 18, height: 18 }}
+              />
+              <span
+                style={{
+                  color: "#0f2d6e",
+                  fontWeight: 700,
+                  fontSize: "0.92rem",
+                }}
+              >
+                Filter by Date
+              </span>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "flex-end",
+                flexWrap: "wrap",
+                gap: 14,
+                flex: 1,
+              }}
+            >
+              <div>
+                <label
+                  htmlFor="date-from"
+                  style={{
+                    display: "block",
+                    color: "#5c7aaa",
+                    fontSize: "0.78rem",
+                    fontWeight: 600,
+                    marginBottom: 4,
+                  }}
+                >
+                  From Date
+                </label>
+                <input
+                  id="date-from"
+                  type="date"
+                  data-ocid="admin.date_filter.input"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  style={{
+                    border: "1px solid #c7d8f5",
+                    borderRadius: "6px",
+                    padding: "7px 12px",
+                    fontSize: "0.88rem",
+                    color: "#0f2d6e",
+                    backgroundColor: "#f8faff",
+                    outline: "none",
+                    cursor: "pointer",
+                  }}
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="date-to"
+                  style={{
+                    display: "block",
+                    color: "#5c7aaa",
+                    fontSize: "0.78rem",
+                    fontWeight: 600,
+                    marginBottom: 4,
+                  }}
+                >
+                  To Date
+                </label>
+                <input
+                  id="date-to"
+                  type="date"
+                  data-ocid="admin.date_filter.input"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  style={{
+                    border: "1px solid #c7d8f5",
+                    borderRadius: "6px",
+                    padding: "7px 12px",
+                    fontSize: "0.88rem",
+                    color: "#0f2d6e",
+                    backgroundColor: "#f8faff",
+                    outline: "none",
+                    cursor: "pointer",
+                  }}
+                />
+              </div>
+              {hasDateFilter && (
+                <button
+                  type="button"
+                  onClick={clearDateFilter}
+                  data-ocid="admin.date_filter.cancel_button"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 5,
+                    padding: "7px 14px",
+                    backgroundColor: "#fff0f0",
+                    color: "#dc2626",
+                    border: "1px solid #fca5a5",
+                    borderRadius: "6px",
+                    fontSize: "0.85rem",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  <X style={{ width: 13, height: 13 }} />
+                  Clear Filter
+                </button>
+              )}
+              {hasDateFilter && (
+                <span
+                  style={{
+                    backgroundColor: "#fff8e0",
+                    color: "#b45309",
+                    fontSize: "0.78rem",
+                    fontWeight: 600,
+                    padding: "4px 10px",
+                    borderRadius: "999px",
+                    border: "1px solid #fde68a",
+                    alignSelf: "center",
+                  }}
+                >
+                  {dateRangeLabel}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Loading */}
-        {isLoading && (
+        {loading && (
           <div
             data-ocid="admin.loading_state"
             style={{
@@ -597,229 +874,293 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
                 animation: "spin 1s linear infinite",
               }}
             />
-            <p style={{ margin: 0 }}>Loading repair requests...</p>
+            <p style={{ margin: 0, fontWeight: 600, color: "#0f2d6e" }}>
+              Loading repair requests...
+            </p>
+            <p style={{ margin: 0, fontSize: "0.85rem" }}>
+              This may take a few seconds
+            </p>
           </div>
         )}
 
         {/* Error */}
-        {isError && (
+        {!loading && error && (
           <div
             data-ocid="admin.error_state"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: "80px 0",
-              color: "#dc2626",
-            }}
-          >
-            Failed to load repair requests. Please refresh the page.
-          </div>
-        )}
-
-        {/* Empty */}
-        {!isLoading && !isError && (!requests || requests.length === 0) && (
-          <div
-            data-ocid="admin.empty_state"
             style={{
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
               padding: "80px 0",
-              gap: 12,
-              border: "1px solid #c7d8f5",
+              gap: 16,
+              border: "1px solid #fca5a5",
               borderRadius: "12px",
-              backgroundColor: "#ffffff",
-              color: "#5c7aaa",
+              backgroundColor: "#fff8f8",
             }}
           >
-            <Inbox style={{ width: 48, height: 48, color: "#c7d8f5" }} />
-            <p style={{ fontWeight: 700, color: "#0f2d6e", margin: 0 }}>
-              No repair requests yet
+            <p style={{ color: "#dc2626", fontWeight: 600, margin: 0 }}>
+              Failed to load repair requests.
             </p>
-            <p style={{ fontSize: "0.88rem", margin: 0 }}>
-              Bookings will appear here once customers submit the repair form.
+            <p style={{ color: "#5c7aaa", fontSize: "0.88rem", margin: 0 }}>
+              {error}
             </p>
+            <button
+              type="button"
+              onClick={handleRetry}
+              data-ocid="admin.retry_button"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "8px 20px",
+                backgroundColor: "#1a56db",
+                color: "#ffffff",
+                border: "none",
+                borderRadius: "8px",
+                fontSize: "0.88rem",
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              <RefreshCw style={{ width: 14, height: 14 }} />
+              Retry
+            </button>
           </div>
         )}
 
+        {/* Empty (no results after filter) */}
+        {!loading &&
+          !error &&
+          (!filteredRequests || filteredRequests.length === 0) && (
+            <div
+              data-ocid="admin.empty_state"
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "80px 0",
+                gap: 12,
+                border: "1px solid #c7d8f5",
+                borderRadius: "12px",
+                backgroundColor: "#ffffff",
+                color: "#5c7aaa",
+              }}
+            >
+              <Inbox style={{ width: 48, height: 48, color: "#c7d8f5" }} />
+              <p style={{ fontWeight: 700, color: "#0f2d6e", margin: 0 }}>
+                {hasDateFilter
+                  ? "No requests found for selected dates"
+                  : "No repair requests yet"}
+              </p>
+              <p style={{ fontSize: "0.88rem", margin: 0 }}>
+                {hasDateFilter
+                  ? "Try changing or clearing the date filter."
+                  : "Bookings will appear here once customers submit the repair form."}
+              </p>
+              {hasDateFilter && (
+                <button
+                  type="button"
+                  onClick={clearDateFilter}
+                  data-ocid="admin.date_filter.cancel_button"
+                  style={{
+                    padding: "7px 16px",
+                    backgroundColor: "#1a56db",
+                    color: "#ffffff",
+                    border: "none",
+                    borderRadius: "6px",
+                    fontSize: "0.88rem",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    marginTop: 4,
+                  }}
+                >
+                  Clear Filter
+                </button>
+              )}
+            </div>
+          )}
+
         {/* Table */}
-        {!isLoading && !isError && requests && requests.length > 0 && (
-          <div
-            style={{
-              backgroundColor: "#ffffff",
-              border: "1px solid #c7d8f5",
-              borderRadius: "12px",
-              overflow: "hidden",
-            }}
-          >
-            <div style={{ overflowX: "auto" }}>
-              <table
-                data-ocid="admin.table"
-                style={{ width: "100%", borderCollapse: "collapse" }}
-              >
-                <thead>
-                  <tr
-                    style={{
-                      backgroundColor: "#f0f4ff",
-                      borderBottom: "1px solid #c7d8f5",
-                    }}
-                  >
-                    {[
-                      "#",
-                      "Name",
-                      "Phone",
-                      "Email",
-                      "Racket Brand",
-                      "Damage Description",
-                      "Date Submitted",
-                      "Actions",
-                    ].map((h) => (
-                      <th
-                        key={h}
-                        style={{
-                          padding: "12px 16px",
-                          textAlign: "left",
-                          color: "#5c7aaa",
-                          fontWeight: 700,
-                          fontSize: "0.82rem",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {requests.map((req, i) => (
+        {!loading &&
+          !error &&
+          filteredRequests &&
+          filteredRequests.length > 0 && (
+            <div
+              style={{
+                backgroundColor: "#ffffff",
+                border: "1px solid #c7d8f5",
+                borderRadius: "12px",
+                overflow: "hidden",
+              }}
+            >
+              <div style={{ overflowX: "auto" }}>
+                <table
+                  data-ocid="admin.table"
+                  style={{ width: "100%", borderCollapse: "collapse" }}
+                >
+                  <thead>
                     <tr
-                      key={`${req.name}-${String(req.submissionTimestamp)}`}
-                      data-ocid={`admin.row.${i + 1}`}
-                      style={{ borderBottom: "1px solid #eef2ff" }}
+                      style={{
+                        backgroundColor: "#f0f4ff",
+                        borderBottom: "1px solid #c7d8f5",
+                      }}
                     >
-                      <td
-                        style={{
-                          padding: "12px 16px",
-                          color: "#5c7aaa",
-                          fontSize: "0.82rem",
-                        }}
-                      >
-                        {i + 1}
-                      </td>
-                      <td
-                        style={{
-                          padding: "12px 16px",
-                          color: "#0f2d6e",
-                          fontWeight: 600,
-                        }}
-                      >
-                        {req.name}
-                      </td>
-                      <td style={{ padding: "12px 16px", color: "#0f2d6e" }}>
-                        {req.phone}
-                      </td>
-                      <td style={{ padding: "12px 16px", color: "#5c7aaa" }}>
-                        {req.email}
-                      </td>
-                      <td style={{ padding: "12px 16px" }}>
-                        <span
+                      {[
+                        "#",
+                        "Name",
+                        "Phone",
+                        "Email",
+                        "Racket Brand",
+                        "Damage Description",
+                        "Date Submitted",
+                        "Actions",
+                      ].map((h) => (
+                        <th
+                          key={h}
                           style={{
-                            backgroundColor: "#e0eaff",
-                            color: "#1a56db",
-                            fontSize: "0.75rem",
+                            padding: "12px 16px",
+                            textAlign: "left",
+                            color: "#5c7aaa",
                             fontWeight: 700,
-                            padding: "2px 8px",
-                            borderRadius: "999px",
-                            border: "1px solid #c7d8f5",
-                          }}
-                        >
-                          {req.racketBrand}
-                        </span>
-                      </td>
-                      <td
-                        style={{
-                          padding: "12px 16px",
-                          color: "#0f2d6e",
-                          maxWidth: 200,
-                        }}
-                      >
-                        <span
-                          style={{
-                            display: "block",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
+                            fontSize: "0.82rem",
                             whiteSpace: "nowrap",
                           }}
-                          title={req.damageDescription}
                         >
-                          {req.damageDescription}
-                        </span>
-                      </td>
-                      <td
-                        style={{
-                          padding: "12px 16px",
-                          color: "#5c7aaa",
-                          fontSize: "0.82rem",
-                          whiteSpace: "nowrap",
-                        }}
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredRequests.map((req, i) => (
+                      <tr
+                        key={`${req.name}-${String(req.submissionTimestamp)}`}
+                        data-ocid={`admin.row.${i + 1}`}
+                        style={{ borderBottom: "1px solid #eef2ff" }}
                       >
-                        {formatTimestamp(req.submissionTimestamp)}
-                      </td>
-                      <td
-                        style={{ padding: "12px 16px", whiteSpace: "nowrap" }}
-                      >
-                        <div style={{ display: "flex", gap: 6 }}>
-                          <button
-                            type="button"
-                            data-ocid={`admin.edit_button.${i + 1}`}
-                            onClick={() => setEditTarget(req)}
-                            title="Edit booking"
+                        <td
+                          style={{
+                            padding: "12px 16px",
+                            color: "#5c7aaa",
+                            fontSize: "0.82rem",
+                          }}
+                        >
+                          {i + 1}
+                        </td>
+                        <td
+                          style={{
+                            padding: "12px 16px",
+                            color: "#0f2d6e",
+                            fontWeight: 600,
+                          }}
+                        >
+                          {req.name}
+                        </td>
+                        <td style={{ padding: "12px 16px", color: "#0f2d6e" }}>
+                          {req.phone}
+                        </td>
+                        <td style={{ padding: "12px 16px", color: "#5c7aaa" }}>
+                          {req.email}
+                        </td>
+                        <td style={{ padding: "12px 16px" }}>
+                          <span
                             style={{
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              width: 32,
-                              height: 32,
                               backgroundColor: "#e0eaff",
                               color: "#1a56db",
+                              fontSize: "0.75rem",
+                              fontWeight: 700,
+                              padding: "2px 8px",
+                              borderRadius: "999px",
                               border: "1px solid #c7d8f5",
-                              borderRadius: "6px",
-                              cursor: "pointer",
                             }}
                           >
-                            <Pencil style={{ width: 14, height: 14 }} />
-                          </button>
-                          <button
-                            type="button"
-                            data-ocid={`admin.delete_button.${i + 1}`}
-                            onClick={() => setDeleteTarget(req)}
-                            title="Delete booking"
+                            {req.racketBrand}
+                          </span>
+                        </td>
+                        <td
+                          style={{
+                            padding: "12px 16px",
+                            color: "#0f2d6e",
+                            maxWidth: 200,
+                          }}
+                        >
+                          <span
                             style={{
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              width: 32,
-                              height: 32,
-                              backgroundColor: "#fff0f0",
-                              color: "#dc2626",
-                              border: "1px solid #fca5a5",
-                              borderRadius: "6px",
-                              cursor: "pointer",
+                              display: "block",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
                             }}
+                            title={req.damageDescription}
                           >
-                            <Trash2 style={{ width: 14, height: 14 }} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                            {req.damageDescription}
+                          </span>
+                        </td>
+                        <td
+                          style={{
+                            padding: "12px 16px",
+                            color: "#5c7aaa",
+                            fontSize: "0.82rem",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {formatTimestamp(req.submissionTimestamp)}
+                        </td>
+                        <td
+                          style={{ padding: "12px 16px", whiteSpace: "nowrap" }}
+                        >
+                          <div style={{ display: "flex", gap: 6 }}>
+                            <button
+                              type="button"
+                              data-ocid={`admin.edit_button.${i + 1}`}
+                              onClick={() => setEditTarget(req)}
+                              title="Edit booking"
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                width: 32,
+                                height: 32,
+                                backgroundColor: "#e0eaff",
+                                color: "#1a56db",
+                                border: "1px solid #c7d8f5",
+                                borderRadius: "6px",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <Pencil style={{ width: 14, height: 14 }} />
+                            </button>
+                            <button
+                              type="button"
+                              data-ocid={`admin.delete_button.${i + 1}`}
+                              onClick={() => setDeleteTarget(req)}
+                              title="Delete booking"
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                width: 32,
+                                height: 32,
+                                backgroundColor: "#fff0f0",
+                                color: "#dc2626",
+                                border: "1px solid #fca5a5",
+                                borderRadius: "6px",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <Trash2 style={{ width: 14, height: 14 }} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-        )}
+          )}
       </div>
     </div>
   );

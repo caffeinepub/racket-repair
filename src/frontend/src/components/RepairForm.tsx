@@ -7,6 +7,8 @@ import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import { motion } from "motion/react";
 import { useState } from "react";
 
+const whiteStyle = { background: "#ffffff", backgroundColor: "#ffffff" };
+
 export function RepairForm() {
   const [form, setForm] = useState({
     name: "",
@@ -45,7 +47,7 @@ export function RepairForm() {
     <section
       id="contact"
       className="py-24 lg:py-32 relative overflow-hidden"
-      style={{ background: "#ffffff" }}
+      style={whiteStyle}
     >
       <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
       <div className="absolute -right-32 top-1/2 -translate-y-1/2 w-72 h-72 rounded-full bg-primary/5 blur-3xl pointer-events-none" />
@@ -64,7 +66,7 @@ export function RepairForm() {
             <h2 className="font-display text-4xl sm:text-5xl lg:text-6xl font-800 tracking-tighter leading-none mb-6">
               Book Your
               <br />
-              <span className="text-gradient-primary">Repair</span>
+              <span style={{ color: "#1d4ed8" }}>Repair</span>
             </h2>
             <p className="text-muted-foreground font-body text-lg leading-relaxed mb-8">
               Submit your repair request and we'll get back to you within 2
@@ -103,7 +105,8 @@ export function RepairForm() {
           >
             {isSuccess ? (
               <div
-                className="bg-card border border-primary/30 rounded-2xl p-10 text-center"
+                className="border border-primary/30 rounded-2xl p-10 text-center"
+                style={whiteStyle}
                 data-ocid="form.success_state"
               >
                 <CheckCircle2 className="w-16 h-16 text-primary mx-auto mb-4" />
@@ -126,7 +129,8 @@ export function RepairForm() {
             ) : (
               <form
                 onSubmit={handleSubmit}
-                className="bg-white border border-gray-100 rounded-2xl p-8 space-y-5 shadow-md"
+                className="border border-gray-100 rounded-2xl p-8 space-y-5 shadow-md"
+                style={whiteStyle}
               >
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -143,7 +147,8 @@ export function RepairForm() {
                       value={form.name}
                       onChange={handleChange}
                       required
-                      className="bg-white border-border focus:border-primary font-body"
+                      className="border-border focus:border-primary font-body"
+                      style={whiteStyle}
                       data-ocid="form.input"
                     />
                   </div>
@@ -162,7 +167,8 @@ export function RepairForm() {
                       value={form.email}
                       onChange={handleChange}
                       required
-                      className="bg-white border-border focus:border-primary font-body"
+                      className="border-border focus:border-primary font-body"
+                      style={whiteStyle}
                       data-ocid="form.input"
                     />
                   </div>
@@ -183,7 +189,8 @@ export function RepairForm() {
                       value={form.phone}
                       onChange={handleChange}
                       required
-                      className="bg-white border-border focus:border-primary font-body"
+                      className="border-border focus:border-primary font-body"
+                      style={whiteStyle}
                       data-ocid="form.input"
                     />
                   </div>
@@ -201,7 +208,8 @@ export function RepairForm() {
                       value={form.racketBrand}
                       onChange={handleChange}
                       required
-                      className="bg-white border-border focus:border-primary font-body"
+                      className="border-border focus:border-primary font-body"
+                      style={whiteStyle}
                       data-ocid="form.input"
                     />
                   </div>
@@ -221,7 +229,8 @@ export function RepairForm() {
                     onChange={handleChange}
                     required
                     rows={4}
-                    className="bg-white border-border focus:border-primary font-body resize-none"
+                    className="border-border focus:border-primary font-body resize-none"
+                    style={whiteStyle}
                     data-ocid="form.textarea"
                   />
                 </div>
