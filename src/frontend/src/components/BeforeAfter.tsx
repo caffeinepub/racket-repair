@@ -23,7 +23,7 @@ export function BeforeAfter() {
           >
             <div className="relative">
               <img
-                src="/assets/generated/broken-racket.dim_600x400.jpg"
+                src="/assets/uploads/broken-badminton-rackets-lying-on-600nw-2529309237-1.jpg"
                 alt="Broken badminton racket frame"
                 className="w-full object-cover"
                 style={{ maxHeight: 280 }}
@@ -55,7 +55,7 @@ export function BeforeAfter() {
           >
             <div className="relative">
               <img
-                src="/assets/generated/repaired-racket.dim_600x400.jpg"
+                src="/assets/uploads/Screenshot_20251016_132003-2.jpg"
                 alt="Repaired badminton racket"
                 className="w-full object-cover"
                 style={{ maxHeight: 280 }}

@@ -5,6 +5,7 @@ import { Footer } from "@/components/Footer";
 import { Hero } from "@/components/Hero";
 import { HowItWorks } from "@/components/HowItWorks";
 import { Nav } from "@/components/Nav";
+import { Products } from "@/components/Products";
 import { QRCodeSection } from "@/components/QRCodeSection";
 import { RepairForm } from "@/components/RepairForm";
 import { Services } from "@/components/Services";
@@ -24,6 +25,7 @@ function MainSite() {
       <Services />
       <HowItWorks />
       <BeforeAfter />
+      <Products />
       <RepairForm />
       <QRCodeSection />
       <ContactUs />
