@@ -1,52 +1,45 @@
-import { AdminPage } from "@/components/AdminPage";
-import { BeforeAfter } from "@/components/BeforeAfter";
-import { ContactUs } from "@/components/ContactUs";
-import { Footer } from "@/components/Footer";
-import { Hero } from "@/components/Hero";
-import { HowItWorks } from "@/components/HowItWorks";
-import { Nav } from "@/components/Nav";
-import { Products } from "@/components/Products";
-import { QRCodeSection } from "@/components/QRCodeSection";
-import { RepairForm } from "@/components/RepairForm";
-import { Services } from "@/components/Services";
 import { Toaster } from "@/components/ui/sonner";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  Outlet,
+  RouterProvider,
+  createRootRoute,
+  createRoute,
+  createRouter,
+} from "@tanstack/react-router";
+import AdminPage from "./pages/AdminPage";
+import HomePage from "./pages/HomePage";
 
-const queryClient = new QueryClient();
+const rootRoute = createRootRoute({
+  component: () => (
+    <>
+      <Toaster richColors position="top-center" />
+      <Outlet />
+    </>
+  ),
+});
 
-function MainSite() {
-  return (
-    <div
-      className="min-h-screen text-foreground overflow-x-hidden"
-      style={{ backgroundColor: "#ffffff" }}
-    >
-      <Nav />
-      <Hero />
-      <Services />
-      <HowItWorks />
-      <BeforeAfter />
-      <Products />
-      <RepairForm />
-      <QRCodeSection />
-      <ContactUs />
-      <Footer />
-    </div>
-  );
-}
+const indexRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/",
+  component: HomePage,
+});
 
-function Router() {
-  const path = window.location.pathname;
-  if (path === "/admin" || path.startsWith("/admin/")) {
-    return <AdminPage />;
+const adminRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/admin",
+  component: AdminPage,
+});
+
+const routeTree = rootRoute.addChildren([indexRoute, adminRoute]);
+
+const router = createRouter({ routeTree });
+
+declare module "@tanstack/react-router" {
+  interface Register {
+    router: typeof router;
   }
-  return <MainSite />;
 }
 
 export default function App() {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <Router />
-      <Toaster />
-    </QueryClientProvider>
-  );
+  return <RouterProvider router={router} />;
 }

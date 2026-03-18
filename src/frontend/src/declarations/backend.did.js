@@ -11,27 +11,81 @@ import { IDL } from '@icp-sdk/core/candid';
 export const Time = IDL.Int;
 export const RepairRequest = IDL.Record({
   'id' : IDL.Nat,
+  'status' : IDL.Text,
+  'serviceType' : IDL.Text,
   'damageDescription' : IDL.Text,
   'submissionTimestamp' : Time,
   'name' : IDL.Text,
   'email' : IDL.Text,
+  'numberOfRackets' : IDL.Nat,
+  'paymentMode' : IDL.Text,
   'phone' : IDL.Text,
+  'charges' : IDL.Text,
   'racketBrand' : IDL.Text,
+  'stringType' : IDL.Text,
+});
+export const StockItem = IDL.Record({
+  'id' : IDL.Nat,
+  'name' : IDL.Text,
+  'unit' : IDL.Text,
+  'category' : IDL.Text,
+});
+export const StockTransaction = IDL.Record({
+  'id' : IDL.Nat,
+  'itemId' : IDL.Nat,
+  'notes' : IDL.Text,
+  'timestamp' : Time,
+  'quantity' : IDL.Nat,
+  'txType' : IDL.Text,
 });
 
 export const idlService = IDL.Service({
+  'addStockItem' : IDL.Func([IDL.Text, IDL.Text, IDL.Text], [], []),
+  'addStockTransaction' : IDL.Func(
+      [IDL.Nat, IDL.Text, IDL.Nat, IDL.Text],
+      [IDL.Bool],
+      [],
+    ),
   'deleteRepairRequest' : IDL.Func([IDL.Nat], [IDL.Bool], []),
+  'deleteStockItem' : IDL.Func([IDL.Nat], [IDL.Bool], []),
+  'deleteStockTransaction' : IDL.Func([IDL.Nat], [IDL.Bool], []),
   'getAllRepairRequests' : IDL.Func([], [IDL.Vec(RepairRequest)], ['query']),
+  'getStockItems' : IDL.Func([], [IDL.Vec(StockItem)], ['query']),
+  'getStockTransactions' : IDL.Func([], [IDL.Vec(StockTransaction)], ['query']),
   'submitRepairRequest' : IDL.Func(
-      [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+      [
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Nat,
+      ],
       [],
       [],
     ),
   'updateRepairRequest' : IDL.Func(
-      [IDL.Nat, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+      [
+        IDL.Nat,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Nat,
+        IDL.Text,
+      ],
       [IDL.Bool],
       [],
     ),
+  'updateStatus' : IDL.Func([IDL.Nat, IDL.Text], [IDL.Bool], []),
 });
 
 export const idlInitArgs = [];
@@ -40,27 +94,85 @@ export const idlFactory = ({ IDL }) => {
   const Time = IDL.Int;
   const RepairRequest = IDL.Record({
     'id' : IDL.Nat,
+    'status' : IDL.Text,
+    'serviceType' : IDL.Text,
     'damageDescription' : IDL.Text,
     'submissionTimestamp' : Time,
     'name' : IDL.Text,
     'email' : IDL.Text,
+    'numberOfRackets' : IDL.Nat,
+    'paymentMode' : IDL.Text,
     'phone' : IDL.Text,
+    'charges' : IDL.Text,
     'racketBrand' : IDL.Text,
+    'stringType' : IDL.Text,
+  });
+  const StockItem = IDL.Record({
+    'id' : IDL.Nat,
+    'name' : IDL.Text,
+    'unit' : IDL.Text,
+    'category' : IDL.Text,
+  });
+  const StockTransaction = IDL.Record({
+    'id' : IDL.Nat,
+    'itemId' : IDL.Nat,
+    'notes' : IDL.Text,
+    'timestamp' : Time,
+    'quantity' : IDL.Nat,
+    'txType' : IDL.Text,
   });
   
   return IDL.Service({
+    'addStockItem' : IDL.Func([IDL.Text, IDL.Text, IDL.Text], [], []),
+    'addStockTransaction' : IDL.Func(
+        [IDL.Nat, IDL.Text, IDL.Nat, IDL.Text],
+        [IDL.Bool],
+        [],
+      ),
     'deleteRepairRequest' : IDL.Func([IDL.Nat], [IDL.Bool], []),
+    'deleteStockItem' : IDL.Func([IDL.Nat], [IDL.Bool], []),
+    'deleteStockTransaction' : IDL.Func([IDL.Nat], [IDL.Bool], []),
     'getAllRepairRequests' : IDL.Func([], [IDL.Vec(RepairRequest)], ['query']),
+    'getStockItems' : IDL.Func([], [IDL.Vec(StockItem)], ['query']),
+    'getStockTransactions' : IDL.Func(
+        [],
+        [IDL.Vec(StockTransaction)],
+        ['query'],
+      ),
     'submitRepairRequest' : IDL.Func(
-        [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+        [
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Nat,
+        ],
         [],
         [],
       ),
     'updateRepairRequest' : IDL.Func(
-        [IDL.Nat, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+        [
+          IDL.Nat,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Nat,
+          IDL.Text,
+        ],
         [IDL.Bool],
         [],
       ),
+    'updateStatus' : IDL.Func([IDL.Nat, IDL.Text], [IDL.Bool], []),
   });
 };
 

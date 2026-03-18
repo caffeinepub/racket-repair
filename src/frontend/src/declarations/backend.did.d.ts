@@ -12,25 +12,68 @@ import type { Principal } from '@icp-sdk/core/principal';
 
 export interface RepairRequest {
   'id' : bigint,
+  'status' : string,
+  'serviceType' : string,
   'damageDescription' : string,
   'submissionTimestamp' : Time,
   'name' : string,
   'email' : string,
+  'numberOfRackets' : bigint,
+  'paymentMode' : string,
   'phone' : string,
+  'charges' : string,
   'racketBrand' : string,
+  'stringType' : string,
+}
+export interface StockItem {
+  'id' : bigint,
+  'name' : string,
+  'unit' : string,
+  'category' : string,
+}
+export interface StockTransaction {
+  'id' : bigint,
+  'itemId' : bigint,
+  'notes' : string,
+  'timestamp' : Time,
+  'quantity' : bigint,
+  'txType' : string,
 }
 export type Time = bigint;
 export interface _SERVICE {
+  'addStockItem' : ActorMethod<[string, string, string], undefined>,
+  'addStockTransaction' : ActorMethod<
+    [bigint, string, bigint, string],
+    boolean
+  >,
   'deleteRepairRequest' : ActorMethod<[bigint], boolean>,
+  'deleteStockItem' : ActorMethod<[bigint], boolean>,
+  'deleteStockTransaction' : ActorMethod<[bigint], boolean>,
   'getAllRepairRequests' : ActorMethod<[], Array<RepairRequest>>,
+  'getStockItems' : ActorMethod<[], Array<StockItem>>,
+  'getStockTransactions' : ActorMethod<[], Array<StockTransaction>>,
   'submitRepairRequest' : ActorMethod<
-    [string, string, string, string, string],
+    [string, string, string, string, string, string, string, string, bigint],
     undefined
   >,
   'updateRepairRequest' : ActorMethod<
-    [bigint, string, string, string, string, string],
+    [
+      bigint,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      bigint,
+      string,
+    ],
     boolean
   >,
+  'updateStatus' : ActorMethod<[bigint, string], boolean>,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];

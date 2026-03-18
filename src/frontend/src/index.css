@@ -1,16 +1,4 @@
-@font-face {
-  font-family: "Bricolage Grotesque";
-  src: url("/assets/fonts/BricolageGrotesque.woff2") format("woff2");
-  font-weight: 200 800;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Satoshi";
-  src: url("/assets/fonts/Satoshi.woff2") format("woff2");
-  font-weight: 300 700;
-  font-display: swap;
-}
+@import url("https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -18,53 +6,33 @@
 
 @layer base {
   :root {
-    /* === RACKETFIX LIGHT THEME — ROYAL BLUE + ORANGE === */
-    --background: 0 0% 100%;
-    --foreground: 214 47% 20%;
-
-    --card: 0 0% 100%;
-    --card-foreground: 214 47% 20%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 214 47% 20%;
-
-    /* Royal blue primary */
-    --primary: 221 83% 47%;
-    --primary-foreground: 0 0% 100%;
-
-    --secondary: 220 40% 96%;
-    --secondary-foreground: 214 40% 20%;
-
-    --muted: 220 20% 96%;
-    --muted-foreground: 215 20% 45%;
-
-    /* Vivid orange accent */
-    --accent: 24 95% 53%;
-    --accent-foreground: 0 0% 100%;
-
-    --destructive: 0 84% 55%;
-    --destructive-foreground: 0 0% 98%;
-
-    --border: 220 20% 90%;
-    --input: 220 20% 90%;
-    --ring: 221 83% 47%;
-
-    --radius: 0.375rem;
-
-    --chart-1: 221 83% 47%;
-    --chart-2: 24 95% 53%;
-    --chart-3: 160 70% 40%;
-    --chart-4: 270 60% 55%;
-    --chart-5: 15 90% 50%;
-
-    --sidebar: 220 40% 96%;
-    --sidebar-foreground: 214 47% 20%;
-    --sidebar-primary: 221 83% 47%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 40% 96%;
-    --sidebar-accent-foreground: 214 40% 20%;
-    --sidebar-border: 220 20% 90%;
-    --sidebar-ring: 221 83% 47%;
+    --background: 1 0 0;
+    --foreground: 0.15 0.01 250;
+    --card: 1 0 0;
+    --card-foreground: 0.15 0.01 250;
+    --popover: 1 0 0;
+    --popover-foreground: 0.15 0.01 250;
+    --primary: 0.28 0.18 250;
+    --primary-foreground: 1 0 0;
+    --secondary: 0.96 0.01 250;
+    --secondary-foreground: 0.28 0.18 250;
+    --muted: 0.97 0.005 250;
+    --muted-foreground: 0.5 0.02 250;
+    --accent: 0.7 0.18 55;
+    --accent-foreground: 1 0 0;
+    --destructive: 0.52 0.21 25;
+    --destructive-foreground: 1 0 0;
+    --success: 0.45 0.18 150;
+    --success-foreground: 1 0 0;
+    --border: 0.9 0.01 250;
+    --input: 0.9 0.01 250;
+    --ring: 0.28 0.18 250;
+    --radius: 0.5rem;
+    --chart-1: 0.28 0.18 250;
+    --chart-2: 0.7 0.18 55;
+    --chart-3: 0.45 0.18 250;
+    --chart-4: 0.52 0.21 25;
+    --chart-5: 0.65 0.15 280;
   }
 }
 
@@ -72,12 +40,8 @@
   * {
     @apply border-border;
   }
-  html {
-    background-color: #ffffff;
-  }
   body {
-    background-color: #ffffff;
-    @apply text-foreground font-body;
+    @apply bg-background text-foreground font-body;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
   h1,
@@ -91,48 +55,19 @@
 }
 
 @layer utilities {
-  .text-gradient-primary {
-    background: linear-gradient(135deg, #1a56db 0%, #4f46e5 60%, #7c3aed 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+  .text-balance {
+    text-wrap: balance;
   }
+}
 
-  .text-gradient-hero {
-    background: linear-gradient(135deg, #67e8f9 0%, #ffffff 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+@media print {
+  .no-print {
+    display: none !important;
   }
-
-  .bg-noise {
-    position: relative;
+  body {
+    background: white !important;
   }
-  .bg-noise::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
-    pointer-events: none;
-    z-index: 1;
-  }
-
-  .glow-blue {
-    box-shadow: 0 0 20px rgba(26, 86, 219, 0.35), 0 0 50px
-      rgba(26, 86, 219, 0.15);
-  }
-
-  .glow-orange {
-    box-shadow: 0 0 20px rgba(249, 115, 22, 0.4), 0 4px 20px
-      rgba(249, 115, 22, 0.2);
-  }
-
-  .card-hover {
-    transition: transform 0.25s ease, box-shadow 0.25s ease;
-  }
-  .card-hover:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.08), 0 0 25px
-      rgba(26, 86, 219, 0.12);
+  .print-section {
+    display: block !important;
   }
 }

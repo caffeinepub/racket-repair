@@ -89,24 +89,79 @@ export class ExternalBlob {
         return this;
     }
 }
+export interface StockItem {
+    id: bigint;
+    name: string;
+    unit: string;
+    category: string;
+}
+export interface StockTransaction {
+    id: bigint;
+    itemId: bigint;
+    notes: string;
+    timestamp: Time;
+    quantity: bigint;
+    txType: string;
+}
+export type Time = bigint;
 export interface RepairRequest {
     id: bigint;
+    status: string;
+    serviceType: string;
     damageDescription: string;
     submissionTimestamp: Time;
     name: string;
     email: string;
+    numberOfRackets: bigint;
+    paymentMode: string;
     phone: string;
+    charges: string;
     racketBrand: string;
+    stringType: string;
 }
-export type Time = bigint;
 export interface backendInterface {
+    addStockItem(name: string, category: string, unit: string): Promise<void>;
+    addStockTransaction(itemId: bigint, txType: string, quantity: bigint, notes: string): Promise<boolean>;
     deleteRepairRequest(id: bigint): Promise<boolean>;
+    deleteStockItem(id: bigint): Promise<boolean>;
+    deleteStockTransaction(id: bigint): Promise<boolean>;
     getAllRepairRequests(): Promise<Array<RepairRequest>>;
-    submitRepairRequest(name: string, email: string, phone: string, racketBrand: string, damageDescription: string): Promise<void>;
-    updateRepairRequest(id: bigint, name: string, email: string, phone: string, racketBrand: string, damageDescription: string): Promise<boolean>;
+    getStockItems(): Promise<Array<StockItem>>;
+    getStockTransactions(): Promise<Array<StockTransaction>>;
+    submitRepairRequest(name: string, email: string, phone: string, racketBrand: string, damageDescription: string, serviceType: string, stringType: string, paymentMode: string, numberOfRackets: bigint): Promise<void>;
+    updateRepairRequest(id: bigint, name: string, email: string, phone: string, racketBrand: string, damageDescription: string, serviceType: string, stringType: string, paymentMode: string, status: string, numberOfRackets: bigint, charges: string): Promise<boolean>;
+    updateStatus(id: bigint, status: string): Promise<boolean>;
 }
 export class Backend implements backendInterface {
     constructor(private actor: ActorSubclass<_SERVICE>, private _uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, private _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, private processError?: (error: unknown) => never){}
+    async addStockItem(arg0: string, arg1: string, arg2: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addStockItem(arg0, arg1, arg2);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addStockItem(arg0, arg1, arg2);
+            return result;
+        }
+    }
+    async addStockTransaction(arg0: bigint, arg1: string, arg2: bigint, arg3: string): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addStockTransaction(arg0, arg1, arg2, arg3);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addStockTransaction(arg0, arg1, arg2, arg3);
+            return result;
+        }
+    }
     async deleteRepairRequest(arg0: bigint): Promise<boolean> {
         if (this.processError) {
             try {
@@ -118,6 +173,34 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.deleteRepairRequest(arg0);
+            return result;
+        }
+    }
+    async deleteStockItem(arg0: bigint): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteStockItem(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteStockItem(arg0);
+            return result;
+        }
+    }
+    async deleteStockTransaction(arg0: bigint): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteStockTransaction(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteStockTransaction(arg0);
             return result;
         }
     }
@@ -135,31 +218,73 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async submitRepairRequest(arg0: string, arg1: string, arg2: string, arg3: string, arg4: string): Promise<void> {
+    async getStockItems(): Promise<Array<StockItem>> {
         if (this.processError) {
             try {
-                const result = await this.actor.submitRepairRequest(arg0, arg1, arg2, arg3, arg4);
+                const result = await this.actor.getStockItems();
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.submitRepairRequest(arg0, arg1, arg2, arg3, arg4);
+            const result = await this.actor.getStockItems();
             return result;
         }
     }
-    async updateRepairRequest(arg0: bigint, arg1: string, arg2: string, arg3: string, arg4: string, arg5: string): Promise<boolean> {
+    async getStockTransactions(): Promise<Array<StockTransaction>> {
         if (this.processError) {
             try {
-                const result = await this.actor.updateRepairRequest(arg0, arg1, arg2, arg3, arg4, arg5);
+                const result = await this.actor.getStockTransactions();
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.updateRepairRequest(arg0, arg1, arg2, arg3, arg4, arg5);
+            const result = await this.actor.getStockTransactions();
+            return result;
+        }
+    }
+    async submitRepairRequest(arg0: string, arg1: string, arg2: string, arg3: string, arg4: string, arg5: string, arg6: string, arg7: string, arg8: bigint): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.submitRepairRequest(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.submitRepairRequest(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
+            return result;
+        }
+    }
+    async updateRepairRequest(arg0: bigint, arg1: string, arg2: string, arg3: string, arg4: string, arg5: string, arg6: string, arg7: string, arg8: string, arg9: string, arg10: bigint, arg11: string): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateRepairRequest(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateRepairRequest(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11);
+            return result;
+        }
+    }
+    async updateStatus(arg0: bigint, arg1: string): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateStatus(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateStatus(arg0, arg1);
             return result;
         }
     }
