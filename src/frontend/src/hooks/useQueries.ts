@@ -3,20 +3,21 @@ import type { RepairRequest, StockItem, StockTransaction } from "../backend";
 import { useActor } from "./useActor";
 
 export function useRepairRequests() {
-  const { actor, isFetching } = useActor();
+  const { actor } = useActor();
   return useQuery<RepairRequest[]>({
     queryKey: ["repairRequests"],
     queryFn: async () => {
-      if (!actor) return [];
+      if (!actor) throw new Error("Backend not ready");
       const results = await actor.getAllRepairRequests();
       return results.sort(
         (a, b) => Number(b.submissionTimestamp) - Number(a.submissionTimestamp),
       );
     },
-    enabled: !!actor && !isFetching,
-    retry: 3,
+    enabled: !!actor,
+    retry: 5,
     retryDelay: 3000,
-    staleTime: 10000,
+    staleTime: 0,
+    refetchOnMount: true,
   });
 }
 
@@ -125,28 +126,30 @@ export function useDeleteRepair() {
 // --- Stock / Inventory hooks ---
 
 export function useStockItems() {
-  const { actor, isFetching } = useActor();
+  const { actor } = useActor();
   return useQuery<StockItem[]>({
     queryKey: ["stockItems"],
     queryFn: async () => {
-      if (!actor) return [];
+      if (!actor) throw new Error("Backend not ready");
       return actor.getStockItems();
     },
-    enabled: !!actor && !isFetching,
-    staleTime: 10000,
+    enabled: !!actor,
+    staleTime: 0,
+    refetchOnMount: true,
   });
 }
 
 export function useStockTransactions() {
-  const { actor, isFetching } = useActor();
+  const { actor } = useActor();
   return useQuery<StockTransaction[]>({
     queryKey: ["stockTransactions"],
     queryFn: async () => {
-      if (!actor) return [];
+      if (!actor) throw new Error("Backend not ready");
       return actor.getStockTransactions();
     },
-    enabled: !!actor && !isFetching,
-    staleTime: 10000,
+    enabled: !!actor,
+    staleTime: 0,
+    refetchOnMount: true,
   });
 }
 
