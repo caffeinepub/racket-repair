@@ -14,6 +14,7 @@ import { useActor } from "@/hooks/useActor";
 import { useSubmitRepair } from "@/hooks/useQueries";
 import {
   CheckCircle2,
+  Download,
   Loader2,
   Lock,
   MapPin,
@@ -154,6 +155,27 @@ export default function HomePage() {
     } else {
       await navigator.clipboard.writeText(pageUrl);
       toast.success("Link copied to clipboard!");
+    }
+  };
+
+  const handleDownloadQR = async () => {
+    if (!pageUrl) return;
+    try {
+      const encoded = encodeURIComponent(pageUrl);
+      const src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encoded}&bgcolor=ffffff&color=1a3c8c&margin=10`;
+      const response = await fetch(src);
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      a.download = "racketfix-qr.png";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(objectUrl);
+      toast.success("QR code downloaded!");
+    } catch {
+      toast.error("Failed to download QR code. Please try again.");
     }
   };
 
@@ -627,6 +649,16 @@ export default function HomePage() {
             instantly
           </p>
           {pageUrl && <QRCode url={pageUrl} />}
+          <div className="mt-4">
+            <Button
+              onClick={handleDownloadQR}
+              disabled={!pageUrl}
+              className="bg-blue-800 text-white hover:bg-blue-900 font-semibold"
+              data-ocid="qr.download_button"
+            >
+              <Download className="w-4 h-4 mr-2" /> Download QR Code
+            </Button>
+          </div>
           <p className="text-xs text-muted-foreground mt-4">
             Scan with any phone camera to open RacketFix website
           </p>
@@ -676,6 +708,14 @@ export default function HomePage() {
                 data-ocid="contact.button"
               >
                 <Share2 className="w-4 h-4 mr-2" /> Share Website
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleDownloadQR}
+                disabled={!pageUrl}
+                data-ocid="contact.download_button"
+              >
+                <Download className="w-4 h-4 mr-2" /> Download QR
               </Button>
             </div>
           </div>

@@ -1358,15 +1358,32 @@ function InventoryTab() {
       <div className="bg-white rounded-xl border border-border shadow-card">
         <div className="p-4 border-b border-border flex items-center justify-between gap-3">
           <h3 className="font-semibold text-foreground">Stock Items</h3>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Button
               size="sm"
-              onClick={() => setAddTxOpen(true)}
               variant="outline"
-              data-ocid="inventory.secondary_button"
+              className="border-green-600 text-green-700 hover:bg-green-50"
+              onClick={() => {
+                setTxForm((f) => ({ ...f, txType: "IN" }));
+                setAddTxOpen(true);
+              }}
+              data-ocid="inventory.stock_in_button"
             >
               <TrendingUp className="w-4 h-4 mr-1.5" />
-              Record Transaction
+              Stock In
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-red-500 text-red-600 hover:bg-red-50"
+              onClick={() => {
+                setTxForm((f) => ({ ...f, txType: "OUT" }));
+                setAddTxOpen(true);
+              }}
+              data-ocid="inventory.stock_out_button"
+            >
+              <TrendingDown className="w-4 h-4 mr-1.5" />
+              Stock Out
             </Button>
             <Button
               size="sm"
@@ -1453,17 +1470,34 @@ function InventoryTab() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-7 text-xs px-2"
+                            className="h-7 text-xs px-2 text-green-700 hover:text-green-800 hover:bg-green-50"
                             onClick={() => {
                               setTxForm((f) => ({
                                 ...f,
                                 itemId: String(item.id),
+                                txType: "IN",
                               }));
                               setAddTxOpen(true);
                             }}
-                            data-ocid={`inventory.secondary_button.${i + 1}`}
+                            data-ocid={`inventory.stock_in_button.${i + 1}`}
                           >
-                            + Transaction
+                            <TrendingUp className="w-3 h-3 mr-1" /> IN
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => {
+                              setTxForm((f) => ({
+                                ...f,
+                                itemId: String(item.id),
+                                txType: "OUT",
+                              }));
+                              setAddTxOpen(true);
+                            }}
+                            data-ocid={`inventory.stock_out_button.${i + 1}`}
+                          >
+                            <TrendingDown className="w-3 h-3 mr-1" /> OUT
                           </Button>
                           <Button
                             variant="ghost"
