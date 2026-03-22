@@ -142,6 +142,7 @@ export default function HomePage() {
   });
   const [submitted, setSubmitted] = useState(false);
   const [submittedPhone, setSubmittedPhone] = useState("");
+  const [ownerWhatsAppUrl, setOwnerWhatsAppUrl] = useState("");
 
   const handleShare = async () => {
     if (navigator.share) {
@@ -197,7 +198,18 @@ export default function HomePage() {
         paymentMode: form.paymentMode,
         numberOfRackets: BigInt(form.numberOfRackets),
       });
-      setSubmittedPhone(form.phone);
+
+      // Capture values before resetting form
+      const submittedName = form.name;
+      const submittedPhoneNum = form.phone;
+      const submittedService = form.serviceType;
+      const submittedBrand = form.racketBrand;
+      const submittedQty = form.numberOfRackets;
+      const submittedString = form.stringType;
+      const submittedPayment = form.paymentMode;
+      const submittedDesc = form.damageDescription;
+
+      setSubmittedPhone(submittedPhoneNum);
       setSubmitted(true);
       setForm({
         name: "",
@@ -210,6 +222,30 @@ export default function HomePage() {
         paymentMode: "",
         damageDescription: "",
       });
+
+      // Build WhatsApp messages
+      const stringLine = submittedString ? `String: ${submittedString}\n` : "";
+
+      // Client confirmation message
+      const clientMsg = encodeURIComponent(
+        `Hello ${submittedName}! ✅ Your repair request has been received at RacketFix.\n\nService: ${submittedService}\nRacket/Bat: ${submittedBrand}\nQty: ${submittedQty}\n${stringLine}Payment: ${submittedPayment}\n\nWe will contact you soon. For queries call: 9440790818\n📍 48-14-61 Near Ramatalkies, Visakhapatnam`,
+      );
+      window.open(
+        `https://wa.me/91${submittedPhoneNum}?text=${clientMsg}`,
+        "_blank",
+      );
+
+      // Owner notification message
+      const ownerMsg = encodeURIComponent(
+        `🔔 New Repair Booking!\n\nName: ${submittedName}\nPhone: ${submittedPhoneNum}\nService: ${submittedService}\nRacket/Bat: ${submittedBrand}\nQty: ${submittedQty}\n${stringLine}Payment: ${submittedPayment}\nDetails: ${submittedDesc}`,
+      );
+      const ownerUrl = `https://wa.me/919440790818?text=${ownerMsg}`;
+      setOwnerWhatsAppUrl(ownerUrl);
+
+      // Open owner WhatsApp after a short delay
+      setTimeout(() => {
+        window.open(ownerUrl, "_blank");
+      }, 1500);
     } catch {
       toast.error("Failed to submit repair request. Please try again.");
     }
@@ -429,12 +465,48 @@ export default function HomePage() {
                 We&apos;ve received your repair request. We&apos;ll contact you
                 soon on <strong>{submittedPhone}</strong>.
               </p>
-              <Button
-                onClick={() => setSubmitted(false)}
-                className="bg-primary text-primary-foreground hover:bg-primary/90"
-              >
-                Book Another Repair
-              </Button>
+              <p className="text-sm text-muted-foreground mb-6">
+                A WhatsApp confirmation has been sent to your mobile and a
+                notification sent to the shop.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <a
+                  href="https://wa.me/919440790818"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block"
+                >
+                  <Button
+                    className="bg-green-600 text-white hover:bg-green-700 font-semibold"
+                    data-ocid="repair_form.success_state"
+                  >
+                    <MessageCircle className="w-4 h-4 mr-2" /> Contact on
+                    WhatsApp
+                  </Button>
+                </a>
+                {ownerWhatsAppUrl && (
+                  <a
+                    href={ownerWhatsAppUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-block"
+                  >
+                    <Button
+                      variant="outline"
+                      className="font-semibold"
+                      data-ocid="repair_form.secondary_button"
+                    >
+                      <MessageCircle className="w-4 h-4 mr-2" /> Notify Shop
+                    </Button>
+                  </a>
+                )}
+                <Button
+                  onClick={() => setSubmitted(false)}
+                  className="bg-primary text-primary-foreground hover:bg-primary/90"
+                >
+                  Book Another Repair
+                </Button>
+              </div>
             </motion.div>
           ) : (
             <form

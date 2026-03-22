@@ -1,3 +1,13 @@
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,82 +26,35 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  useAddStockItem,
-  useAddStockTransaction,
-  useDeleteRepair,
-  useDeleteStockItem,
-  useDeleteStockTransaction,
-  useRepairRequests,
-  useStockItems,
-  useStockTransactions,
-  useUpdateRepair,
-  useUpdateStatus,
-} from "@/hooks/useQueries";
-import {
-  BarChart3,
-  ClipboardList,
+  ChevronRight,
   Download,
   Loader2,
   LogOut,
-  Package,
-  Pencil,
+  Plus,
   Printer,
   RefreshCw,
-  Trash2,
-  TrendingDown,
-  TrendingUp,
-  Users,
-  X,
 } from "lucide-react";
-import { motion } from "motion/react";
-import { useEffect, useMemo, useState } from "react";
-import { toast } from "sonner";
-import type { StockItem, StockTransaction } from "../backend";
-import type { RepairRequest } from "../backend";
+import { useEffect, useState } from "react";
+import type { RepairRequest, StockItem, StockTransaction } from "../backend";
+import { clearActorCache, getActor } from "../lib/actor";
 
-const ADMIN_USER = "admin";
-const ADMIN_PASS = "racketfix2024";
-const SESSION_KEY = "racketfix_admin";
-
-const SERVICE_TYPES = [
-  "Restringing",
-  "Frame Repair",
-  "Grip Replacement",
-  "Grommet Replacement",
-  "Full Restoration",
-  "Other",
-  "Cricket Bat Repair",
-  "Cricket Bat Handle",
-  "Cricket Bat Binding",
-];
-const STRING_TYPES = [
-  "Yonex BG 65",
-  "Yonex BG Ti",
-  "Yonex BG Power 80",
-  "Yonex Ulimax 66",
-  "Lining N0 7",
-  "Konex",
-  "Vextor VBS 70",
-];
-const PAYMENT_MODES = ["Phone Pay", "Card", "Cash"];
-const STATUSES = ["Pending", "In Progress", "Completed"];
-
-const STOCK_CATEGORIES = [
-  "Strings",
-  "Grips",
-  "Grommets",
-  "Frames",
-  "Tools",
-  "Other",
-];
-const STOCK_UNITS = ["pcs", "rolls", "sets", "pairs"];
+// ─── helpers ────────────────────────────────────────────────────────────────
 
 function formatDate(ts: bigint) {
-  const d = new Date(Number(ts) / 1_000_000);
-  return d.toLocaleDateString("en-IN", {
+  if (!ts) return "—";
+  const ms = Number(ts) / 1_000_000;
+  return new Date(ms).toLocaleDateString("en-IN", {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -101,29 +64,40 @@ function formatDate(ts: bigint) {
 function statusColor(s: string) {
   if (s === "Completed") return "bg-success text-success-foreground";
   if (s === "In Progress") return "bg-accent text-accent-foreground";
-  return "bg-muted text-muted-foreground";
+  return "bg-secondary text-secondary-foreground";
 }
 
-function serviceColor(s: string) {
-  if (s === "Restringing")
-    return "bg-primary/10 text-primary border-primary/20";
-  if (s.startsWith("Cricket"))
-    return "bg-accent/10 text-accent border-accent/20";
-  return "bg-muted text-muted-foreground border-border";
-}
+const SERVICE_TYPES = [
+  "Restringing",
+  "Frame Repair",
+  "Grip Replacement",
+  "Grommet Replacement",
+  "Full Restoration",
+  "Cricket Bat Repair",
+  "Cricket Bat Handle",
+  "Cricket Bat Binding",
+  "Other",
+];
 
-function inDateRange(ts: bigint, from: string, to: string) {
-  if (!from && !to) return true;
-  const d = new Date(Number(ts) / 1_000_000);
-  const df = from ? new Date(from) : null;
-  const dt = to ? new Date(`${to}T23:59:59`) : null;
-  if (df && d < df) return false;
-  if (dt && d > dt) return false;
-  return true;
-}
+const STRING_TYPES = [
+  "Yonex BG 65",
+  "Yonex BG Ti",
+  "Yonex BG Power 80",
+  "Yonex Ultimax 66",
+  "Lining No 7",
+  "Konex",
+  "Vextor VBS 70",
+  "N/A",
+];
 
-type EditForm = {
-  id: bigint;
+const PAYMENT_MODES = ["Phone Pay", "Card", "Cash"];
+const STATUSES = ["Pending", "In Progress", "Completed"];
+const CATEGORIES = ["Strings", "Grips", "Grommets", "Frames", "Tools", "Other"];
+const UNITS = ["pcs", "rolls", "sets", "pairs"];
+
+// ─── types ───────────────────────────────────────────────────────────────────
+
+interface EditForm {
   name: string;
   email: string;
   phone: string;
@@ -133,796 +107,616 @@ type EditForm = {
   stringType: string;
   paymentMode: string;
   status: string;
-  numberOfRackets: number;
+  numberOfRackets: string;
   charges: string;
-};
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AdminPage
+// ═══════════════════════════════════════════════════════════════════════════
 
 export default function AdminPage() {
-  const [loggedIn, setLoggedIn] = useState(
-    () => sessionStorage.getItem(SESSION_KEY) === "1",
-  );
-  const [loginForm, setLoginForm] = useState({ user: "", pass: "" });
+  const [loggedIn, setLoggedIn] = useState(false);
+  const [loginUser, setLoginUser] = useState("");
+  const [loginPass, setLoginPass] = useState("");
   const [loginError, setLoginError] = useState("");
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (loginForm.user === ADMIN_USER && loginForm.pass === ADMIN_PASS) {
-      sessionStorage.setItem(SESSION_KEY, "1");
+  function handleLogin() {
+    if (loginUser === "admin" && loginPass === "racketfix2024") {
       setLoggedIn(true);
       setLoginError("");
     } else {
-      setLoginError("Invalid username or password");
+      setLoginError("Invalid username or password.");
     }
-  };
-
-  const handleLogout = () => {
-    sessionStorage.removeItem(SESSION_KEY);
-    setLoggedIn(false);
-  };
+  }
 
   if (!loggedIn) {
     return (
-      <div className="min-h-screen bg-muted flex items-center justify-center p-4">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-xl border border-border shadow-card p-8 w-full max-w-sm"
-          data-ocid="admin_login.panel"
-        >
-          <div className="text-center mb-6">
-            <span className="text-4xl">🏸</span>
-            <h1 className="font-display text-2xl font-bold text-foreground mt-2">
-              RacketFix Admin
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Sign in to manage repairs
-            </p>
-          </div>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-1.5">
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ background: "#0f2644" }}
+      >
+        <div className="bg-white rounded-2xl shadow-hero p-8 w-full max-w-sm">
+          <h1 className="font-display text-2xl font-bold text-primary mb-1 text-center">
+            RacketFix Admin
+          </h1>
+          <p className="text-muted-foreground text-sm text-center mb-6">
+            Sign in to manage your dashboard
+          </p>
+          <div className="space-y-4">
+            <div>
               <Label htmlFor="admin-user">Username</Label>
               <Input
                 id="admin-user"
-                value={loginForm.user}
-                onChange={(e) =>
-                  setLoginForm((f) => ({ ...f, user: e.target.value }))
-                }
+                data-ocid="admin.input"
+                value={loginUser}
+                onChange={(e) => setLoginUser(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleLogin()}
                 placeholder="admin"
-                style={{ backgroundColor: "#fff" }}
-                data-ocid="admin_login.input"
+                className="mt-1"
               />
             </div>
-            <div className="space-y-1.5">
+            <div>
               <Label htmlFor="admin-pass">Password</Label>
               <Input
                 id="admin-pass"
+                data-ocid="admin.input"
                 type="password"
-                value={loginForm.pass}
-                onChange={(e) =>
-                  setLoginForm((f) => ({ ...f, pass: e.target.value }))
-                }
+                value={loginPass}
+                onChange={(e) => setLoginPass(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleLogin()}
                 placeholder="••••••••"
-                style={{ backgroundColor: "#fff" }}
-                data-ocid="admin_login.input"
+                className="mt-1"
               />
             </div>
             {loginError && (
               <p
-                className="text-sm text-destructive"
-                data-ocid="admin_login.error_state"
+                data-ocid="admin.error_state"
+                className="text-destructive text-sm"
               >
                 {loginError}
               </p>
             )}
             <Button
-              type="submit"
-              className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
-              data-ocid="admin_login.submit_button"
+              data-ocid="admin.submit_button"
+              className="w-full"
+              style={{ background: "#1e3a5f" }}
+              onClick={handleLogin}
             >
               Sign In
             </Button>
-          </form>
-        </motion.div>
+          </div>
+        </div>
       </div>
     );
   }
 
-  return <AdminDashboard onLogout={handleLogout} />;
+  return <Dashboard onLogout={() => setLoggedIn(false)} />;
 }
 
-function AdminDashboard({ onLogout }: { onLogout: () => void }) {
-  const {
-    data: requests = [],
-    isLoading,
-    isError,
-    refetch,
-  } = useRepairRequests();
-  const updateStatus = useUpdateStatus();
-  const updateRepair = useUpdateRepair();
-  const deleteRepair = useDeleteRepair();
+// ═══════════════════════════════════════════════════════════════════════════
+// Dashboard
+// ═══════════════════════════════════════════════════════════════════════════
 
-  const [search, setSearch] = useState("");
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
-  const [editItem, setEditItem] = useState<EditForm | null>(null);
-  const [deleteId, setDeleteId] = useState<bigint | null>(null);
-  const [clientView, setClientView] = useState<string | null>(null);
+function Dashboard({ onLogout }: { onLogout: () => void }) {
+  const [bookings, setBookings] = useState<RepairRequest[]>([]);
+  const [stockItems, setStockItems] = useState<StockItem[]>([]);
+  const [stockTxns, setStockTxns] = useState<StockTransaction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const [restrFrom, setRestrFrom] = useState("");
-  const [restrTo, setRestrTo] = useState("");
-
-  const now = new Date();
-  const monthStart =
-    new Date(now.getFullYear(), now.getMonth(), 1).getTime() * 1_000_000;
-
-  const stats = useMemo(
-    () => ({
-      total: requests.length,
-      clients: new Set(requests.map((r) => r.phone)).size,
-      thisMonth: requests.filter(
-        (r) => r.submissionTimestamp >= BigInt(monthStart),
-      ).length,
-    }),
-    [requests, monthStart],
-  );
-
-  const filtered = useMemo(
-    () =>
-      requests.filter((r) => {
-        const q = search.toLowerCase();
-        const matchSearch =
-          !q || r.name.toLowerCase().includes(q) || r.phone.includes(q);
-        return (
-          matchSearch && inDateRange(r.submissionTimestamp, fromDate, toDate)
-        );
-      }),
-    [requests, search, fromDate, toDate],
-  );
-
-  const restrFiltered = useMemo(
-    () =>
-      requests.filter(
-        (r) =>
-          r.serviceType === "Restringing" &&
-          inDateRange(r.submissionTimestamp, restrFrom, restrTo),
-      ),
-    [requests, restrFrom, restrTo],
-  );
-
-  const clients = useMemo(() => {
-    const map = new Map<
-      string,
-      { name: string; phone: string; total: number; lastVisit: bigint }
-    >();
-    for (const r of requests) {
-      const existing = map.get(r.phone);
-      if (!existing) {
-        map.set(r.phone, {
-          name: r.name,
-          phone: r.phone,
-          total: 1,
-          lastVisit: r.submissionTimestamp,
-        });
-      } else {
-        existing.total++;
-        if (r.submissionTimestamp > existing.lastVisit)
-          existing.lastVisit = r.submissionTimestamp;
-      }
-    }
-    return Array.from(map.values()).sort(
-      (a, b) => Number(b.lastVisit) - Number(a.lastVisit),
-    );
-  }, [requests]);
-
-  const clientHistory = clientView
-    ? requests.filter((r) => r.phone === clientView)
-    : [];
-
-  const handleStatusChange = async (id: bigint, status: string) => {
+  const loadData = async () => {
+    setLoading(true);
+    setError(null);
+    clearActorCache();
     try {
-      await updateStatus.mutateAsync({ id, status });
+      const actor = await getActor();
+      const [rr, si, st] = await Promise.all([
+        actor.getAllRepairRequests(),
+        actor.getStockItems(),
+        actor.getStockTransactions(),
+      ]);
+      rr.sort(
+        (a, b) => Number(b.submissionTimestamp) - Number(a.submissionTimestamp),
+      );
+      setBookings(rr);
+      setStockItems(si);
+      setStockTxns(st);
     } catch {
-      toast.error("Failed to update status");
+      setError("Failed to load data. Please retry.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleChargesBlur = async (r: RepairRequest, charges: string) => {
-    if (charges === r.charges) return;
-    try {
-      await updateRepair.mutateAsync({
-        id: r.id,
-        name: r.name,
-        email: r.email,
-        phone: r.phone,
-        racketBrand: r.racketBrand,
-        damageDescription: r.damageDescription,
-        serviceType: r.serviceType,
-        stringType: r.stringType,
-        paymentMode: r.paymentMode,
-        status: r.status,
-        numberOfRackets: r.numberOfRackets,
-        charges,
-      });
-      toast.success("Charges updated");
-    } catch {
-      toast.error("Failed to update charges");
-    }
-  };
-
-  const openEdit = (r: RepairRequest) => {
-    setEditItem({
-      id: r.id,
-      name: r.name,
-      email: r.email,
-      phone: r.phone,
-      racketBrand: r.racketBrand,
-      damageDescription: r.damageDescription,
-      serviceType: r.serviceType,
-      stringType: r.stringType,
-      paymentMode: r.paymentMode,
-      status: r.status,
-      numberOfRackets: Number(r.numberOfRackets),
-      charges: r.charges,
-    });
-  };
-
-  const handleEditSave = async () => {
-    if (!editItem) return;
-    try {
-      await updateRepair.mutateAsync({
-        ...editItem,
-        numberOfRackets: BigInt(editItem.numberOfRackets),
-      });
-      toast.success("Booking updated");
-      setEditItem(null);
-    } catch {
-      toast.error("Failed to update booking");
-    }
-  };
-
-  const handleDelete = async () => {
-    if (deleteId === null) return;
-    try {
-      await deleteRepair.mutateAsync(deleteId);
-      toast.success("Booking deleted");
-      setDeleteId(null);
-    } catch {
-      toast.error("Failed to delete booking");
-    }
-  };
-
-  const printReport = (
-    rows: RepairRequest[],
-    title: string,
-    dateRange: string,
-  ) => {
-    const win = window.open("", "_blank");
-    if (!win) return;
-    const html = `<!DOCTYPE html><html><head><title>${title}</title>
-      <style>body{font-family:sans-serif;padding:20px}h2{margin-bottom:4px}p.sub{color:#666;margin-bottom:16px}
-      table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:6px 8px;font-size:12px;text-align:left}
-      th{background:#f0f0f0;font-weight:600}tr:nth-child(even){background:#fafafa}
-      @media print{button{display:none}}</style></head>
-      <body>
-      <h2>RacketFix — ${title}</h2>
-      <p class="sub">${dateRange} | Total: ${rows.length}</p>
-      <button onclick="window.print()" style="margin-bottom:12px;padding:6px 16px;cursor:pointer">Print</button>
-      <table><thead><tr>
-      <th>#</th><th>Date</th><th>Name</th><th>Phone</th><th>Brand</th><th>Service</th><th>String</th><th>Qty</th><th>Payment</th><th>Charges</th><th>Status</th>
-      </tr></thead><tbody>
-      ${rows.map((r, i) => `<tr><td>${i + 1}</td><td>${formatDate(r.submissionTimestamp)}</td><td>${r.name}</td><td>${r.phone}</td><td>${r.racketBrand}</td><td>${r.serviceType}</td><td>${r.stringType || "—"}</td><td>${r.numberOfRackets}</td><td>${r.paymentMode || "—"}</td><td>${r.charges || "—"}</td><td>${r.status}</td></tr>`).join("")}
-      </tbody></table></body></html>`;
-    win.document.write(html);
-    win.document.close();
-  };
-
-  const dateRangeLabel = (from: string, to: string) =>
-    from || to ? `${from || "Start"} to ${to || "End"}` : "All Dates";
-
-  if (isLoading) {
-    return (
-      <div
-        className="min-h-screen bg-muted flex flex-col items-center justify-center gap-4"
-        data-ocid="admin.loading_state"
-      >
-        <Loader2 className="w-10 h-10 text-primary animate-spin" />
-        <p className="text-muted-foreground">Loading repair data...</p>
-      </div>
-    );
-  }
-
-  if (isError) {
-    return (
-      <div
-        className="min-h-screen bg-muted flex flex-col items-center justify-center gap-4"
-        data-ocid="admin.error_state"
-      >
-        <p className="text-destructive font-semibold">
-          Failed to load repair data
-        </p>
-        <Button
-          onClick={() => refetch()}
-          variant="outline"
-          data-ocid="admin.button"
-        >
-          <RefreshCw className="w-4 h-4 mr-2" /> Retry
-        </Button>
-      </div>
-    );
-  }
+  // biome-ignore lint/correctness/useExhaustiveDependencies: loadData is stable
+  useEffect(() => {
+    loadData();
+  }, []);
 
   return (
-    <div className="min-h-screen bg-muted">
+    <div className="min-h-screen" style={{ background: "#f0f4f8" }}>
       {/* Header */}
-      <header className="bg-white border-b border-border shadow-sm sticky top-0 z-40 no-print">
-        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-xl">🏸</span>
-            <span className="font-display font-bold text-lg text-primary">
-              RacketFix
-            </span>
-            <Badge variant="secondary" className="ml-1">
-              Admin
-            </Badge>
-          </div>
+      <header
+        style={{ background: "#1e3a5f" }}
+        className="text-white px-6 py-4 flex items-center justify-between"
+      >
+        <div>
+          <h1 className="font-display text-xl font-bold">RacketFix Admin</h1>
+          <p className="text-blue-200 text-xs mt-0.5">Dashboard</p>
+        </div>
+        <div className="flex gap-2">
           <Button
-            variant="ghost"
+            data-ocid="admin.secondary_button"
+            variant="outline"
             size="sm"
-            onClick={onLogout}
-            data-ocid="admin.button"
+            className="border-white/30 text-white hover:bg-white/10"
+            onClick={loadData}
           >
-            <LogOut className="w-4 h-4 mr-1" /> Logout
+            <RefreshCw className="h-4 w-4 mr-1" /> Refresh
+          </Button>
+          <Button
+            data-ocid="admin.secondary_button"
+            variant="outline"
+            size="sm"
+            className="border-white/30 text-white hover:bg-white/10"
+            onClick={onLogout}
+          >
+            <LogOut className="h-4 w-4 mr-1" /> Logout
           </Button>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-6">
-        {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-          {[
-            {
-              label: "Total Bookings",
-              value: stats.total,
-              icon: <ClipboardList className="w-5 h-5" />,
-            },
-            {
-              label: "Unique Clients",
-              value: stats.clients,
-              icon: <Users className="w-5 h-5" />,
-            },
-            {
-              label: "This Month",
-              value: stats.thisMonth,
-              icon: <BarChart3 className="w-5 h-5" />,
-            },
-          ].map((s) => (
-            <div
-              key={s.label}
-              className="bg-white rounded-xl border border-border shadow-card p-5 flex items-center gap-4"
-            >
-              <div className="p-3 bg-primary/10 rounded-lg text-primary">
-                {s.icon}
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-foreground">{s.value}</p>
-                <p className="text-sm text-muted-foreground">{s.label}</p>
-              </div>
-            </div>
-          ))}
+      {loading && (
+        <div
+          data-ocid="admin.loading_state"
+          className="flex flex-col items-center justify-center py-24 gap-3"
+        >
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          <p className="text-muted-foreground">Loading data…</p>
         </div>
+      )}
 
-        <Tabs defaultValue="requests" className="space-y-4">
-          <TabsList
-            className="bg-white border border-border"
-            data-ocid="admin.tab"
-          >
-            <TabsTrigger value="requests" data-ocid="admin.tab">
-              Repair Requests
-            </TabsTrigger>
-            <TabsTrigger value="clients" data-ocid="admin.tab">
-              Clients
-            </TabsTrigger>
-            <TabsTrigger value="restringing" data-ocid="admin.tab">
-              Restringing
-            </TabsTrigger>
-            <TabsTrigger value="inventory" data-ocid="admin.tab">
-              <Package className="w-4 h-4 mr-1.5" />
-              Inventory
-            </TabsTrigger>
-          </TabsList>
+      {error && !loading && (
+        <div
+          data-ocid="admin.error_state"
+          className="flex flex-col items-center justify-center py-24 gap-4"
+        >
+          <p className="text-destructive font-medium">{error}</p>
+          <Button onClick={loadData} data-ocid="admin.primary_button">
+            <RefreshCw className="h-4 w-4 mr-2" /> Retry
+          </Button>
+        </div>
+      )}
 
-          {/* Repair Requests Tab */}
-          <TabsContent value="requests">
-            <div className="bg-white rounded-xl border border-border shadow-card">
-              <div className="p-4 border-b border-border flex flex-col sm:flex-row gap-3 no-print">
-                <Input
-                  placeholder="Search name or phone..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="flex-1"
-                  style={{ backgroundColor: "#fff" }}
-                  data-ocid="admin.search_input"
-                />
-                <div className="flex gap-2 items-center">
-                  <Label className="text-xs whitespace-nowrap">From</Label>
-                  <Input
-                    type="date"
-                    value={fromDate}
-                    onChange={(e) => setFromDate(e.target.value)}
-                    className="w-36"
-                    style={{ backgroundColor: "#fff" }}
-                  />
-                  <Label className="text-xs whitespace-nowrap">To</Label>
-                  <Input
-                    type="date"
-                    value={toDate}
-                    onChange={(e) => setToDate(e.target.value)}
-                    className="w-36"
-                    style={{ backgroundColor: "#fff" }}
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      printReport(
-                        filtered,
-                        "Repair Requests",
-                        dateRangeLabel(fromDate, toDate),
-                      )
-                    }
-                    data-ocid="admin.button"
-                  >
-                    <Printer className="w-4 h-4 mr-1" /> Print
-                  </Button>
-                </div>
-              </div>
-              {filtered.length === 0 ? (
-                <div
-                  className="p-12 text-center text-muted-foreground"
-                  data-ocid="admin.empty_state"
+      {!loading && !error && (
+        <main className="max-w-7xl mx-auto px-4 py-6">
+          {/* Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <StatCard label="Total Bookings" value={bookings.length} />
+            <StatCard
+              label="Pending"
+              value={bookings.filter((b) => b.status === "Pending").length}
+            />
+            <StatCard
+              label="In Progress"
+              value={bookings.filter((b) => b.status === "In Progress").length}
+            />
+            <StatCard
+              label="Completed"
+              value={bookings.filter((b) => b.status === "Completed").length}
+            />
+          </div>
+
+          <Tabs defaultValue="repairs">
+            <TabsList className="mb-4">
+              <TabsTrigger data-ocid="admin.tab" value="repairs">
+                Repair Requests
+              </TabsTrigger>
+              <TabsTrigger data-ocid="admin.tab" value="clients">
+                Clients
+              </TabsTrigger>
+              <TabsTrigger data-ocid="admin.tab" value="restringing">
+                Restringing
+              </TabsTrigger>
+              <TabsTrigger data-ocid="admin.tab" value="inventory">
+                Inventory
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="repairs">
+              <RepairsTab bookings={bookings} onRefresh={loadData} />
+            </TabsContent>
+            <TabsContent value="clients">
+              <ClientsTab bookings={bookings} />
+            </TabsContent>
+            <TabsContent value="restringing">
+              <RestringingTab bookings={bookings} />
+            </TabsContent>
+            <TabsContent value="inventory">
+              <InventoryTab
+                stockItems={stockItems}
+                stockTxns={stockTxns}
+                onRefresh={loadData}
+              />
+            </TabsContent>
+          </Tabs>
+        </main>
+      )}
+    </div>
+  );
+}
+
+function StatCard({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="bg-white rounded-xl p-4 shadow-card">
+      <p className="text-muted-foreground text-xs uppercase tracking-wide">
+        {label}
+      </p>
+      <p className="text-3xl font-bold text-primary mt-1">{value}</p>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Repairs Tab
+// ═══════════════════════════════════════════════════════════════════════════
+
+function RepairsTab({
+  bookings,
+  onRefresh,
+}: { bookings: RepairRequest[]; onRefresh: () => void }) {
+  const [search, setSearch] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [editTarget, setEditTarget] = useState<RepairRequest | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<RepairRequest | null>(null);
+  const [editForm, setEditForm] = useState<EditForm | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  function filtered() {
+    return bookings.filter((b) => {
+      const q = search.toLowerCase();
+      const matchSearch =
+        !q ||
+        b.name.toLowerCase().includes(q) ||
+        b.phone.toLowerCase().includes(q);
+      const ts = Number(b.submissionTimestamp) / 1_000_000;
+      const d = new Date(ts);
+      const matchFrom = !fromDate || d >= new Date(fromDate);
+      const matchTo = !toDate || d <= new Date(`${toDate}T23:59:59`);
+      return matchSearch && matchFrom && matchTo;
+    });
+  }
+
+  function openEdit(b: RepairRequest) {
+    setEditTarget(b);
+    setEditForm({
+      name: b.name,
+      email: b.email,
+      phone: b.phone,
+      racketBrand: b.racketBrand,
+      damageDescription: b.damageDescription,
+      serviceType: b.serviceType,
+      stringType: b.stringType,
+      paymentMode: b.paymentMode,
+      status: b.status,
+      numberOfRackets: String(b.numberOfRackets),
+      charges: b.charges,
+    });
+  }
+
+  async function saveEdit() {
+    if (!editTarget || !editForm) return;
+    setSaving(true);
+    try {
+      const actor = await getActor();
+      await actor.updateRepairRequest(
+        editTarget.id,
+        editForm.name,
+        editForm.email,
+        editForm.phone,
+        editForm.racketBrand,
+        editForm.damageDescription,
+        editForm.serviceType,
+        editForm.stringType,
+        editForm.paymentMode,
+        editForm.status,
+        BigInt(editForm.numberOfRackets || "1"),
+        editForm.charges,
+      );
+      setEditTarget(null);
+      setEditForm(null);
+      onRefresh();
+    } catch {
+      alert("Failed to save changes.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const actor = await getActor();
+      await actor.deleteRepairRequest(deleteTarget.id);
+      setDeleteTarget(null);
+      onRefresh();
+    } catch {
+      alert("Failed to delete booking.");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  async function handleStatusChange(id: bigint, status: string) {
+    try {
+      const actor = await getActor();
+      await actor.updateStatus(id, status);
+      onRefresh();
+    } catch {
+      alert("Failed to update status.");
+    }
+  }
+
+  function printStatement() {
+    const rows = filtered();
+    const dateHeader =
+      fromDate && toDate
+        ? `${fromDate} to ${toDate}`
+        : fromDate
+          ? `From ${fromDate}`
+          : toDate
+            ? `To ${toDate}`
+            : "All Dates";
+
+    const tableRows = rows
+      .map(
+        (b, i) =>
+          `<tr style="background:${i % 2 === 0 ? "#f8fafd" : "white"}">
+            <td>${formatDate(b.submissionTimestamp)}</td>
+            <td>${b.name}</td>
+            <td>${b.phone}</td>
+            <td>${b.serviceType}</td>
+            <td>${b.stringType || "—"}</td>
+            <td>${b.paymentMode || "—"}</td>
+            <td>${b.numberOfRackets}</td>
+            <td>${b.status}</td>
+            <td>${b.charges || "—"}</td>
+          </tr>`,
+      )
+      .join("");
+
+    const win = window.open("", "_blank");
+    if (!win) return;
+    win.document.write(`
+      <html><head><title>RacketFix Statement</title>
+      <style>
+        body { font-family: Arial, sans-serif; padding: 24px; }
+        h2 { color: #1e3a5f; }
+        table { width:100%; border-collapse:collapse; font-size:13px; }
+        th { background:#1e3a5f; color:white; padding:8px 6px; text-align:left; }
+        td { padding:6px; border-bottom:1px solid #e2e8f0; }
+        .meta { color:#555; font-size:13px; margin-bottom:16px; }
+      </style></head><body>
+      <h2>RacketFix – Repair Statement</h2>
+      <p class="meta">Date Range: <strong>${dateHeader}</strong> &nbsp;|&nbsp; Total Records: <strong>${rows.length}</strong></p>
+      <table>
+        <thead><tr>
+          <th>Date</th><th>Name</th><th>Phone</th><th>Service</th><th>String</th><th>Payment</th><th>Rackets</th><th>Status</th><th>Charges</th>
+        </tr></thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+      </body></html>`);
+    win.document.close();
+    win.print();
+  }
+
+  const rows = filtered();
+
+  return (
+    <div className="bg-white rounded-xl shadow-card p-4">
+      {/* Filters */}
+      <div className="flex flex-wrap gap-3 mb-4">
+        <Input
+          data-ocid="repairs.search_input"
+          placeholder="Search name or phone…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-56"
+        />
+        <div className="flex items-center gap-2">
+          <Label className="text-xs text-muted-foreground whitespace-nowrap">
+            From
+          </Label>
+          <Input
+            data-ocid="repairs.input"
+            type="date"
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+            className="w-36"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <Label className="text-xs text-muted-foreground whitespace-nowrap">
+            To
+          </Label>
+          <Input
+            data-ocid="repairs.input"
+            type="date"
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+            className="w-36"
+          />
+        </div>
+        <Button
+          data-ocid="repairs.primary_button"
+          size="sm"
+          onClick={printStatement}
+          style={{ background: "#1e3a5f" }}
+          className="ml-auto"
+        >
+          <Printer className="h-4 w-4 mr-1" /> Print Statement
+        </Button>
+      </div>
+
+      {rows.length === 0 ? (
+        <div
+          data-ocid="repairs.empty_state"
+          className="text-center py-12 text-muted-foreground"
+        >
+          No repair requests found.
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Date</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Phone</TableHead>
+                <TableHead>Service</TableHead>
+                <TableHead>String</TableHead>
+                <TableHead>Payment</TableHead>
+                <TableHead>Rackets</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Charges</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((b, idx) => (
+                <TableRow
+                  key={String(b.id)}
+                  data-ocid={`repairs.item.${idx + 1}`}
                 >
-                  No repair requests found.
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-muted">
-                      <tr>
-                        {[
-                          "#",
-                          "Date",
-                          "Name",
-                          "Phone",
-                          "Brand",
-                          "Service",
-                          "String",
-                          "Qty",
-                          "Status",
-                          "Charges",
-                          "Payment",
-                          "Actions",
-                        ].map((h) => (
-                          <th
-                            key={h}
-                            className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap"
-                          >
-                            {h}
-                          </th>
+                  <TableCell className="text-xs">
+                    {formatDate(b.submissionTimestamp)}
+                  </TableCell>
+                  <TableCell className="font-medium">{b.name}</TableCell>
+                  <TableCell>{b.phone}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="text-xs">
+                      {b.serviceType || "—"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    {b.stringType || "—"}
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    {b.paymentMode || "—"}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {String(b.numberOfRackets)}
+                  </TableCell>
+                  <TableCell>
+                    <Select
+                      value={b.status}
+                      onValueChange={(val) => handleStatusChange(b.id, val)}
+                    >
+                      <SelectTrigger
+                        data-ocid="repairs.select"
+                        className="h-7 text-xs w-32"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {STATUSES.map((s) => (
+                          <SelectItem key={s} value={s}>
+                            {s}
+                          </SelectItem>
                         ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {filtered.map((r, i) => (
-                        <RepairRow
-                          key={String(r.id)}
-                          r={r}
-                          index={i + 1}
-                          onStatusChange={handleStatusChange}
-                          onChargesBlur={handleChargesBlur}
-                          onEdit={openEdit}
-                          onDelete={(id) => setDeleteId(id)}
-                        />
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </TabsContent>
-
-          {/* Clients Tab */}
-          <TabsContent value="clients">
-            <div className="bg-white rounded-xl border border-border shadow-card">
-              <div className="p-4 border-b border-border">
-                <h3 className="font-semibold text-foreground">
-                  Client List ({clients.length})
-                </h3>
-              </div>
-              {clients.length === 0 ? (
-                <div
-                  className="p-12 text-center text-muted-foreground"
-                  data-ocid="clients.empty_state"
-                >
-                  No clients yet.
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-muted">
-                      <tr>
-                        {[
-                          "#",
-                          "Name",
-                          "Phone",
-                          "Total Repairs",
-                          "Last Visit",
-                          "Actions",
-                        ].map((h) => (
-                          <th
-                            key={h}
-                            className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground"
-                          >
-                            {h}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {clients.map((c, i) => (
-                        <tr
-                          key={c.phone}
-                          className="hover:bg-muted/40 transition-colors"
-                          data-ocid={`clients.item.${i + 1}`}
-                        >
-                          <td className="px-3 py-2.5 text-muted-foreground">
-                            {i + 1}
-                          </td>
-                          <td className="px-3 py-2.5 font-medium text-foreground">
-                            {c.name}
-                          </td>
-                          <td className="px-3 py-2.5">{c.phone}</td>
-                          <td className="px-3 py-2.5">
-                            <Badge variant="secondary">
-                              {c.total} repair{c.total !== 1 ? "s" : ""}
-                            </Badge>
-                          </td>
-                          <td className="px-3 py-2.5 text-muted-foreground">
-                            {formatDate(c.lastVisit)}
-                          </td>
-                          <td className="px-3 py-2.5">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setClientView(c.phone)}
-                              data-ocid={`clients.secondary_button.${i + 1}`}
-                            >
-                              View History
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </TabsContent>
-
-          {/* Restringing Tab */}
-          <TabsContent value="restringing">
-            <div className="bg-white rounded-xl border border-border shadow-card">
-              <div className="p-4 border-b border-border flex flex-col sm:flex-row gap-3">
-                <div className="flex gap-2 items-center">
-                  <Label className="text-xs whitespace-nowrap">From</Label>
-                  <Input
-                    type="date"
-                    value={restrFrom}
-                    onChange={(e) => setRestrFrom(e.target.value)}
-                    className="w-36"
-                    style={{ backgroundColor: "#fff" }}
-                  />
-                  <Label className="text-xs whitespace-nowrap">To</Label>
-                  <Input
-                    type="date"
-                    value={restrTo}
-                    onChange={(e) => setRestrTo(e.target.value)}
-                    className="w-36"
-                    style={{ backgroundColor: "#fff" }}
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      printReport(
-                        restrFiltered,
-                        "Restringing Report",
-                        dateRangeLabel(restrFrom, restrTo),
-                      )
-                    }
-                    data-ocid="restringing.button"
-                  >
-                    <Printer className="w-4 h-4 mr-1" /> Print
-                  </Button>
-                </div>
-                <div className="ml-auto text-sm text-muted-foreground self-center">
-                  {restrFiltered.length} restringing job
-                  {restrFiltered.length !== 1 ? "s" : ""}
-                </div>
-              </div>
-              {restrFiltered.length === 0 ? (
-                <div
-                  className="p-12 text-center text-muted-foreground"
-                  data-ocid="restringing.empty_state"
-                >
-                  No restringing jobs found.
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-muted">
-                      <tr>
-                        {[
-                          "#",
-                          "Date",
-                          "Name",
-                          "Phone",
-                          "Brand",
-                          "String Type",
-                          "Qty",
-                          "Payment Mode",
-                          "Charges",
-                          "Status",
-                        ].map((h) => (
-                          <th
-                            key={h}
-                            className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap"
-                          >
-                            {h}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {restrFiltered.map((r, i) => (
-                        <tr
-                          key={String(r.id)}
-                          className="hover:bg-muted/40 transition-colors"
-                          data-ocid={`restringing.item.${i + 1}`}
-                        >
-                          <td className="px-3 py-2.5 text-muted-foreground">
-                            {i + 1}
-                          </td>
-                          <td className="px-3 py-2.5 whitespace-nowrap">
-                            {formatDate(r.submissionTimestamp)}
-                          </td>
-                          <td className="px-3 py-2.5 font-medium">{r.name}</td>
-                          <td className="px-3 py-2.5">{r.phone}</td>
-                          <td className="px-3 py-2.5">{r.racketBrand}</td>
-                          <td className="px-3 py-2.5">{r.stringType || "—"}</td>
-                          <td className="px-3 py-2.5">
-                            {String(r.numberOfRackets)}
-                          </td>
-                          <td className="px-3 py-2.5">
-                            {r.paymentMode || "—"}
-                          </td>
-                          <td className="px-3 py-2.5">{r.charges || "—"}</td>
-                          <td className="px-3 py-2.5">
-                            <span
-                              className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium ${statusColor(r.status)}`}
-                            >
-                              {r.status}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </TabsContent>
-
-          {/* Inventory Tab */}
-          <TabsContent value="inventory">
-            <InventoryTab />
-          </TabsContent>
-        </Tabs>
-      </main>
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell className="text-xs">{b.charges || "—"}</TableCell>
+                  <TableCell>
+                    <div className="flex gap-1">
+                      <Button
+                        data-ocid={`repairs.edit_button.${idx + 1}`}
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        onClick={() => openEdit(b)}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        data-ocid={`repairs.delete_button.${idx + 1}`}
+                        size="sm"
+                        variant="destructive"
+                        className="h-7 text-xs"
+                        onClick={() => setDeleteTarget(b)}
+                      >
+                        Del
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
       {/* Edit Dialog */}
       <Dialog
-        open={!!editItem}
-        onOpenChange={(open) => !open && setEditItem(null)}
+        open={!!editTarget}
+        onOpenChange={(o) => {
+          if (!o) {
+            setEditTarget(null);
+            setEditForm(null);
+          }
+        }}
       >
-        <DialogContent
-          className="max-w-2xl max-h-[90vh] overflow-y-auto"
-          data-ocid="admin.dialog"
-        >
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-display">Edit Booking</DialogTitle>
+            <DialogTitle>Edit Repair Request</DialogTitle>
           </DialogHeader>
-          {editItem && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-2">
-              <div className="space-y-1.5">
-                <Label>Name</Label>
+          {editForm && (
+            <div className="space-y-3 py-2">
+              <FormRow label="Name">
                 <Input
-                  value={editItem.name}
+                  value={editForm.name}
                   onChange={(e) =>
-                    setEditItem((f) => f && { ...f, name: e.target.value })
+                    setEditForm({ ...editForm, name: e.target.value })
                   }
-                  style={{ backgroundColor: "#fff" }}
                 />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Phone</Label>
+              </FormRow>
+              <FormRow label="Phone">
                 <Input
-                  value={editItem.phone}
+                  value={editForm.phone}
                   onChange={(e) =>
-                    setEditItem((f) => f && { ...f, phone: e.target.value })
+                    setEditForm({ ...editForm, phone: e.target.value })
                   }
-                  style={{ backgroundColor: "#fff" }}
                 />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Email</Label>
+              </FormRow>
+              <FormRow label="Email">
                 <Input
-                  value={editItem.email}
+                  value={editForm.email}
                   onChange={(e) =>
-                    setEditItem((f) => f && { ...f, email: e.target.value })
+                    setEditForm({ ...editForm, email: e.target.value })
                   }
-                  style={{ backgroundColor: "#fff" }}
                 />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Brand</Label>
+              </FormRow>
+              <FormRow label="Racket Brand">
                 <Input
-                  value={editItem.racketBrand}
+                  value={editForm.racketBrand}
                   onChange={(e) =>
-                    setEditItem(
-                      (f) => f && { ...f, racketBrand: e.target.value },
-                    )
+                    setEditForm({ ...editForm, racketBrand: e.target.value })
                   }
-                  style={{ backgroundColor: "#fff" }}
                 />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Qty</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  value={editItem.numberOfRackets}
-                  onChange={(e) =>
-                    setEditItem(
-                      (f) =>
-                        f && {
-                          ...f,
-                          numberOfRackets: Number.parseInt(e.target.value) || 1,
-                        },
-                    )
-                  }
-                  style={{ backgroundColor: "#fff" }}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Charges (₹)</Label>
-                <Input
-                  value={editItem.charges}
-                  onChange={(e) =>
-                    setEditItem((f) => f && { ...f, charges: e.target.value })
-                  }
-                  placeholder="e.g. 350"
-                  style={{ backgroundColor: "#fff" }}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Service Type</Label>
+              </FormRow>
+              <FormRow label="Service Type">
                 <Select
-                  value={editItem.serviceType}
+                  value={editForm.serviceType}
                   onValueChange={(v) =>
-                    setEditItem((f) => f && { ...f, serviceType: v })
+                    setEditForm({ ...editForm, serviceType: v })
                   }
                 >
-                  <SelectTrigger style={{ backgroundColor: "#fff" }}>
+                  <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -933,17 +727,16 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>String Type</Label>
+              </FormRow>
+              <FormRow label="String Type">
                 <Select
-                  value={editItem.stringType}
+                  value={editForm.stringType}
                   onValueChange={(v) =>
-                    setEditItem((f) => f && { ...f, stringType: v })
+                    setEditForm({ ...editForm, stringType: v })
                   }
                 >
-                  <SelectTrigger style={{ backgroundColor: "#fff" }}>
-                    <SelectValue placeholder="None" />
+                  <SelectTrigger>
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {STRING_TYPES.map((s) => (
@@ -953,36 +746,32 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Payment Mode</Label>
+              </FormRow>
+              <FormRow label="Payment Mode">
                 <Select
-                  value={editItem.paymentMode}
+                  value={editForm.paymentMode}
                   onValueChange={(v) =>
-                    setEditItem((f) => f && { ...f, paymentMode: v })
+                    setEditForm({ ...editForm, paymentMode: v })
                   }
                 >
-                  <SelectTrigger style={{ backgroundColor: "#fff" }}>
+                  <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {PAYMENT_MODES.map((p) => (
-                      <SelectItem key={p} value={p}>
-                        {p}
+                    {PAYMENT_MODES.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Status</Label>
+              </FormRow>
+              <FormRow label="Status">
                 <Select
-                  value={editItem.status}
-                  onValueChange={(v) =>
-                    setEditItem((f) => f && { ...f, status: v })
-                  }
+                  value={editForm.status}
+                  onValueChange={(v) => setEditForm({ ...editForm, status: v })}
                 >
-                  <SelectTrigger style={{ backgroundColor: "#fff" }}>
+                  <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -993,38 +782,59 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="sm:col-span-2 space-y-1.5">
-                <Label>Damage Description</Label>
-                <Textarea
-                  value={editItem.damageDescription}
-                  rows={3}
+              </FormRow>
+              <FormRow label="Rackets">
+                <Input
+                  type="number"
+                  min="1"
+                  value={editForm.numberOfRackets}
                   onChange={(e) =>
-                    setEditItem(
-                      (f) => f && { ...f, damageDescription: e.target.value },
-                    )
+                    setEditForm({
+                      ...editForm,
+                      numberOfRackets: e.target.value,
+                    })
                   }
-                  style={{ backgroundColor: "#fff" }}
                 />
-              </div>
+              </FormRow>
+              <FormRow label="Charges">
+                <Input
+                  value={editForm.charges}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, charges: e.target.value })
+                  }
+                  placeholder="e.g. ₹500"
+                />
+              </FormRow>
+              <FormRow label="Description">
+                <Textarea
+                  value={editForm.damageDescription}
+                  onChange={(e) =>
+                    setEditForm({
+                      ...editForm,
+                      damageDescription: e.target.value,
+                    })
+                  }
+                />
+              </FormRow>
             </div>
           )}
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setEditItem(null)}
-              data-ocid="admin.cancel_button"
+              onClick={() => {
+                setEditTarget(null);
+                setEditForm(null);
+              }}
             >
               Cancel
             </Button>
             <Button
-              onClick={handleEditSave}
-              disabled={updateRepair.isPending}
-              className="bg-primary text-primary-foreground"
-              data-ocid="admin.save_button"
+              disabled={saving}
+              onClick={saveEdit}
+              style={{ background: "#1e3a5f" }}
             >
-              {updateRepair.isPending ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
               ) : null}
               Save Changes
             </Button>
@@ -1032,651 +842,594 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirm Dialog */}
-      <Dialog
-        open={deleteId !== null}
-        onOpenChange={(open) => !open && setDeleteId(null)}
+      {/* Delete Confirm */}
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => {
+          if (!o) setDeleteTarget(null);
+        }}
       >
-        <DialogContent data-ocid="admin.dialog">
-          <DialogHeader>
-            <DialogTitle className="font-display">Delete Booking</DialogTitle>
-          </DialogHeader>
-          <p className="text-muted-foreground">
-            Are you sure you want to delete this booking? This action cannot be
-            undone.
-          </p>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setDeleteId(null)}
-              data-ocid="admin.cancel_button"
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Repair Request?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the booking for{" "}
+              <strong>{deleteTarget?.name}</strong>. This action cannot be
+              undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              data-ocid="repairs.cancel_button"
+              onClick={() => setDeleteTarget(null)}
             >
               Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={deleteRepair.isPending}
-              data-ocid="admin.confirm_button"
+            </AlertDialogCancel>
+            <AlertDialogAction
+              data-ocid="repairs.confirm_button"
+              onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground"
+              disabled={deleting}
             >
-              {deleteRepair.isPending ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              {deleting ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
               ) : null}
               Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
 
-      {/* Client History Dialog */}
-      <Dialog
-        open={!!clientView}
-        onOpenChange={(open) => !open && setClientView(null)}
-      >
-        <DialogContent
-          className="max-w-2xl max-h-[80vh] overflow-y-auto"
-          data-ocid="clients.dialog"
+function FormRow({
+  label,
+  children,
+}: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-3 items-center gap-3">
+      <Label className="text-sm text-right">{label}</Label>
+      <div className="col-span-2">{children}</div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Clients Tab
+// ═══════════════════════════════════════════════════════════════════════════
+
+function ClientsTab({ bookings }: { bookings: RepairRequest[] }) {
+  const [search, setSearch] = useState("");
+  const [historyClient, setHistoryClient] = useState<{
+    name: string;
+    phone: string;
+    bookings: RepairRequest[];
+  } | null>(null);
+
+  const clientMap = new Map<
+    string,
+    { name: string; phone: string; bookings: RepairRequest[] }
+  >();
+  for (const b of bookings) {
+    const key = b.phone;
+    if (!clientMap.has(key)) {
+      clientMap.set(key, { name: b.name, phone: b.phone, bookings: [] });
+    }
+    clientMap.get(key)!.bookings.push(b);
+  }
+  const clients = Array.from(clientMap.values()).filter((c) => {
+    const q = search.toLowerCase();
+    return !q || c.name.toLowerCase().includes(q) || c.phone.includes(q);
+  });
+
+  return (
+    <div className="bg-white rounded-xl shadow-card p-4">
+      <Input
+        data-ocid="clients.search_input"
+        placeholder="Search name or phone…"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="w-56 mb-4"
+      />
+      {clients.length === 0 ? (
+        <div
+          data-ocid="clients.empty_state"
+          className="text-center py-12 text-muted-foreground"
         >
+          No clients found.
+        </div>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Name</TableHead>
+              <TableHead>Phone</TableHead>
+              <TableHead>Total Repairs</TableHead>
+              <TableHead>Last Visit</TableHead>
+              <TableHead />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {clients.map((c, idx) => {
+              const lastVisit = c.bookings.reduce((max, b) => {
+                const t = Number(b.submissionTimestamp);
+                return t > max ? t : max;
+              }, 0);
+              return (
+                <TableRow key={c.phone} data-ocid={`clients.item.${idx + 1}`}>
+                  <TableCell className="font-medium">{c.name}</TableCell>
+                  <TableCell>{c.phone}</TableCell>
+                  <TableCell>{c.bookings.length}</TableCell>
+                  <TableCell className="text-xs">
+                    {lastVisit ? formatDate(BigInt(lastVisit)) : "—"}
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      data-ocid={`clients.secondary_button.${idx + 1}`}
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs"
+                      onClick={() => setHistoryClient(c)}
+                    >
+                      History <ChevronRight className="h-3 w-3 ml-1" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      )}
+
+      <Dialog
+        open={!!historyClient}
+        onOpenChange={(o) => {
+          if (!o) setHistoryClient(null);
+        }}
+      >
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-display">Repair History</DialogTitle>
+            <DialogTitle>
+              Repair History – {historyClient?.name} ({historyClient?.phone})
+            </DialogTitle>
           </DialogHeader>
-          <div className="space-y-2">
-            {clientHistory.map((r, i) => (
-              <div
-                key={String(r.id)}
-                className="border border-border rounded-lg p-3 text-sm"
-                data-ocid={`clients.item.${i + 1}`}
-              >
-                <div className="flex justify-between items-start">
-                  <div>
-                    <span className="font-semibold">{r.serviceType}</span>
-                    {r.stringType && (
-                      <span className="text-muted-foreground ml-2">
-                        ({r.stringType})
-                      </span>
-                    )}
-                  </div>
-                  <span
-                    className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor(r.status)}`}
-                  >
-                    {r.status}
-                  </span>
-                </div>
-                <p className="text-muted-foreground mt-1">
-                  {r.racketBrand} · Qty {String(r.numberOfRackets)} ·{" "}
-                  {formatDate(r.submissionTimestamp)}
-                </p>
-                {r.charges && (
-                  <p className="text-primary font-semibold mt-0.5">
-                    ₹{r.charges}
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setClientView(null)}
-              data-ocid="clients.close_button"
-            >
-              Close
-            </Button>
-          </DialogFooter>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Date</TableHead>
+                <TableHead>Service</TableHead>
+                <TableHead>String</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Charges</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {historyClient?.bookings.map((b, i) => (
+                <TableRow
+                  key={String(b.id)}
+                  data-ocid={`client_history.item.${i + 1}`}
+                >
+                  <TableCell className="text-xs">
+                    {formatDate(b.submissionTimestamp)}
+                  </TableCell>
+                  <TableCell>{b.serviceType}</TableCell>
+                  <TableCell className="text-xs">
+                    {b.stringType || "—"}
+                  </TableCell>
+                  <TableCell>
+                    <Badge className={statusColor(b.status)}>{b.status}</Badge>
+                  </TableCell>
+                  <TableCell>{b.charges || "—"}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </DialogContent>
       </Dialog>
     </div>
   );
 }
 
-// ---- Inventory Tab ----
+// ═══════════════════════════════════════════════════════════════════════════
+// Restringing Tab
+// ═══════════════════════════════════════════════════════════════════════════
 
-function csvEscape(val: string): string {
-  if (val.includes(",") || val.includes('"') || val.includes("\n")) {
-    return `"${val.replace(/"/g, '""')}"`;
-  }
-  return val;
-}
+function RestringingTab({ bookings }: { bookings: RepairRequest[] }) {
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
 
-function downloadInventoryCSV(
-  items: StockItem[],
-  transactions: StockTransaction[],
-) {
-  const itemMap = new Map(items.map((it) => [String(it.id), it]));
-
-  // Sort transactions by timestamp ascending for running balance
-  const sorted = [...transactions].sort(
-    (a, b) => Number(a.timestamp) - Number(b.timestamp),
-  );
-
-  // Running balance per item
-  const balances: Record<string, number> = {};
-
-  const rows = sorted.map((tx) => {
-    const item = itemMap.get(String(tx.itemId));
-    const itemName = item?.name ?? "Unknown";
-    const category = item?.category ?? "";
-    const unit = item?.unit ?? "";
-    const key = String(tx.itemId);
-    if (!balances[key]) balances[key] = 0;
-    const qty = Number(tx.quantity);
-    if (tx.txType === "IN") {
-      balances[key] += qty;
-    } else {
-      balances[key] -= qty;
-    }
-    const d = new Date(Number(tx.timestamp) / 1_000_000);
-    const dateStr = d.toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-    return [
-      csvEscape(dateStr),
-      csvEscape(itemName),
-      csvEscape(category),
-      csvEscape(unit),
-      csvEscape(tx.txType),
-      String(qty),
-      csvEscape(tx.notes),
-      String(balances[key]),
-    ].join(",");
+  const rows = bookings.filter((b) => {
+    const isRestring = b.serviceType === "Restringing";
+    const ts = Number(b.submissionTimestamp) / 1_000_000;
+    const d = new Date(ts);
+    const matchFrom = !fromDate || d >= new Date(fromDate);
+    const matchTo = !toDate || d <= new Date(`${toDate}T23:59:59`);
+    return isRestring && matchFrom && matchTo;
   });
 
-  const header = "Date,Item Name,Category,Unit,Type,Quantity,Notes,Balance";
-  const csv = [header, ...rows].join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  const today = new Date().toISOString().slice(0, 10);
-  link.href = url;
-  link.download = `inventory-${today}.csv`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  function printReport() {
+    const dateHeader =
+      fromDate && toDate
+        ? `${fromDate} to ${toDate}`
+        : fromDate
+          ? `From ${fromDate}`
+          : toDate
+            ? `To ${toDate}`
+            : "All Dates";
+    const tableRows = rows
+      .map(
+        (b, i) =>
+          `<tr style="background:${i % 2 === 0 ? "#f8fafd" : "white"}">
+            <td>${formatDate(b.submissionTimestamp)}</td>
+            <td>${b.name}</td>
+            <td>${b.phone}</td>
+            <td>${b.stringType || "—"}</td>
+            <td>${b.paymentMode || "—"}</td>
+            <td>${b.status}</td>
+          </tr>`,
+      )
+      .join("");
+    const win = window.open("", "_blank");
+    if (!win) return;
+    win.document.write(`
+      <html><head><title>Restringing Report</title>
+      <style>
+        body { font-family: Arial, sans-serif; padding: 24px; }
+        h2 { color: #1e3a5f; }
+        table { width:100%; border-collapse:collapse; font-size:13px; }
+        th { background:#1e3a5f; color:white; padding:8px 6px; text-align:left; }
+        td { padding:6px; border-bottom:1px solid #e2e8f0; }
+        .meta { color:#555; font-size:13px; margin-bottom:16px; }
+      </style></head><body>
+      <h2>RacketFix – Restringing Report</h2>
+      <p class="meta">Date Range: <strong>${dateHeader}</strong> &nbsp;|&nbsp; Total: <strong>${rows.length}</strong></p>
+      <table>
+        <thead><tr><th>Date</th><th>Name</th><th>Phone</th><th>String Type</th><th>Payment</th><th>Status</th></tr></thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+      </body></html>`);
+    win.document.close();
+    win.print();
+  }
+
+  return (
+    <div className="bg-white rounded-xl shadow-card p-4">
+      <div className="flex flex-wrap gap-3 mb-4 items-center">
+        <div className="flex items-center gap-2">
+          <Label className="text-xs text-muted-foreground">From</Label>
+          <Input
+            data-ocid="restringing.input"
+            type="date"
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+            className="w-36"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <Label className="text-xs text-muted-foreground">To</Label>
+          <Input
+            data-ocid="restringing.input"
+            type="date"
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+            className="w-36"
+          />
+        </div>
+        <Button
+          data-ocid="restringing.primary_button"
+          size="sm"
+          onClick={printReport}
+          style={{ background: "#1e3a5f" }}
+          className="ml-auto"
+        >
+          <Printer className="h-4 w-4 mr-1" /> Print Report
+        </Button>
+      </div>
+
+      <div className="mb-3 text-sm text-muted-foreground">
+        Total restringing: <strong>{rows.length}</strong>
+      </div>
+
+      {rows.length === 0 ? (
+        <div
+          data-ocid="restringing.empty_state"
+          className="text-center py-12 text-muted-foreground"
+        >
+          No restringing records found.
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Date</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Phone</TableHead>
+                <TableHead>String Type</TableHead>
+                <TableHead>Payment</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((b, idx) => (
+                <TableRow
+                  key={String(b.id)}
+                  data-ocid={`restringing.item.${idx + 1}`}
+                >
+                  <TableCell className="text-xs">
+                    {formatDate(b.submissionTimestamp)}
+                  </TableCell>
+                  <TableCell className="font-medium">{b.name}</TableCell>
+                  <TableCell>{b.phone}</TableCell>
+                  <TableCell>{b.stringType || "—"}</TableCell>
+                  <TableCell>{b.paymentMode || "—"}</TableCell>
+                  <TableCell>
+                    <Badge className={statusColor(b.status)}>{b.status}</Badge>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </div>
+  );
 }
 
-function InventoryTab() {
-  const { data: items = [], isLoading: itemsLoading } = useStockItems();
-  const { data: transactions = [], isLoading: txLoading } =
-    useStockTransactions();
-  const addItem = useAddStockItem();
-  const addTx = useAddStockTransaction();
-  const deleteItem = useDeleteStockItem();
-  const deleteTx = useDeleteStockTransaction();
+// ═══════════════════════════════════════════════════════════════════════════
+// Inventory Tab
+// ═══════════════════════════════════════════════════════════════════════════
 
-  // Add Item dialog
+function InventoryTab({
+  stockItems,
+  stockTxns,
+  onRefresh,
+}: {
+  stockItems: StockItem[];
+  stockTxns: StockTransaction[];
+  onRefresh: () => void;
+}) {
   const [addItemOpen, setAddItemOpen] = useState(false);
-  const [itemForm, setItemForm] = useState({
+  const [txOpen, setTxOpen] = useState(false);
+  const [txType, setTxType] = useState<"IN" | "OUT">("IN");
+  const [txItemId, setTxItemId] = useState("");
+  const [txQty, setTxQty] = useState("1");
+  const [txNotes, setTxNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const [newItem, setNewItem] = useState({
     name: "",
     category: "Strings",
     unit: "pcs",
   });
 
-  // Record Transaction dialog
-  const [addTxOpen, setAddTxOpen] = useState(false);
-  const [txForm, setTxForm] = useState({
-    itemId: "",
-    txType: "IN",
-    quantity: "1",
-    notes: "",
-  });
+  function calcIn(itemId: bigint) {
+    return stockTxns
+      .filter((t) => t.itemId === itemId && t.txType === "IN")
+      .reduce((s, t) => s + Number(t.quantity), 0);
+  }
 
-  // Delete item confirm
-  const [deleteItemId, setDeleteItemId] = useState<bigint | null>(null);
+  function calcOut(itemId: bigint) {
+    return stockTxns
+      .filter((t) => t.itemId === itemId && t.txType === "OUT")
+      .reduce((s, t) => s + Number(t.quantity), 0);
+  }
 
-  // Transactions date filter
-  const [txFrom, setTxFrom] = useState("");
-  const [txTo, setTxTo] = useState("");
-
-  // Computed: current stock per item
-  const stockMap = useMemo(() => {
-    const m: Record<string, number> = {};
-    for (const tx of transactions) {
-      const key = String(tx.itemId);
-      if (!m[key]) m[key] = 0;
-      if (tx.txType === "IN") m[key] += Number(tx.quantity);
-      else m[key] -= Number(tx.quantity);
-    }
-    return m;
-  }, [transactions]);
-
-  const totalIn = useMemo(
-    () =>
-      transactions
-        .filter((t) => t.txType === "IN")
-        .reduce((s, t) => s + Number(t.quantity), 0),
-    [transactions],
-  );
-  const totalOut = useMemo(
-    () =>
-      transactions
-        .filter((t) => t.txType === "OUT")
-        .reduce((s, t) => s + Number(t.quantity), 0),
-    [transactions],
-  );
-
-  const itemMap = useMemo(
-    () => new Map(items.map((it) => [String(it.id), it])),
-    [items],
-  );
-
-  const filteredTx = useMemo(
-    () =>
-      transactions
-        .filter((tx) => inDateRange(tx.timestamp, txFrom, txTo))
-        .sort((a, b) => Number(b.timestamp) - Number(a.timestamp)),
-    [transactions, txFrom, txTo],
-  );
-
-  const handleAddItem = async () => {
-    if (!itemForm.name.trim()) return;
+  async function addItem() {
+    if (!newItem.name.trim()) return;
+    setSaving(true);
     try {
-      await addItem.mutateAsync(itemForm);
-      toast.success("Item added");
-      setItemForm({ name: "", category: "Strings", unit: "pcs" });
+      const actor = await getActor();
+      await actor.addStockItem(newItem.name, newItem.category, newItem.unit);
+      setNewItem({ name: "", category: "Strings", unit: "pcs" });
       setAddItemOpen(false);
+      onRefresh();
     } catch {
-      toast.error("Failed to add item");
+      alert("Failed to add item.");
+    } finally {
+      setSaving(false);
     }
-  };
+  }
 
-  const handleAddTx = async () => {
-    if (!txForm.itemId || !txForm.quantity) return;
+  async function recordTx() {
+    if (!txItemId || !txQty) return;
+    setSaving(true);
     try {
-      await addTx.mutateAsync({
-        itemId: BigInt(txForm.itemId),
-        txType: txForm.txType,
-        quantity: BigInt(Number.parseInt(txForm.quantity) || 1),
-        notes: txForm.notes,
-      });
-      toast.success("Transaction recorded");
-      setTxForm({ itemId: "", txType: "IN", quantity: "1", notes: "" });
-      setAddTxOpen(false);
+      const actor = await getActor();
+      await actor.addStockTransaction(
+        BigInt(txItemId),
+        txType,
+        BigInt(txQty),
+        txNotes,
+      );
+      setTxOpen(false);
+      setTxItemId("");
+      setTxQty("1");
+      setTxNotes("");
+      onRefresh();
     } catch {
-      toast.error("Failed to record transaction");
+      alert("Failed to record transaction.");
+    } finally {
+      setSaving(false);
     }
-  };
+  }
 
-  const handleDeleteItem = async () => {
-    if (deleteItemId === null) return;
+  async function quickTx(itemId: bigint, type: "IN" | "OUT") {
     try {
-      await deleteItem.mutateAsync(deleteItemId);
-      toast.success("Item deleted");
-      setDeleteItemId(null);
+      const actor = await getActor();
+      await actor.addStockTransaction(itemId, type, BigInt(1), "");
+      onRefresh();
     } catch {
-      toast.error("Failed to delete item");
+      alert("Failed.");
     }
-  };
+  }
 
-  const handleDeleteTx = async (id: bigint) => {
-    try {
-      await deleteTx.mutateAsync(id);
-      toast.success("Transaction deleted");
-    } catch {
-      toast.error("Failed to delete transaction");
-    }
-  };
+  function downloadCSV() {
+    const header = "Item Name,Category,Unit,Total In,Total Out,Current Stock\n";
+    const body = stockItems
+      .map((item) => {
+        const inQ = calcIn(item.id);
+        const outQ = calcOut(item.id);
+        const cur = inQ - outQ;
+        return `"${item.name}","${item.category}","${item.unit}",${inQ},${outQ},${cur}`;
+      })
+      .join("\n");
+    const blob = new Blob([header + body], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "racketfix-inventory.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
-  const isLoading = itemsLoading || txLoading;
+  function openTx(type: "IN" | "OUT", itemId?: bigint) {
+    setTxType(type);
+    setTxItemId(itemId ? String(itemId) : "");
+    setTxOpen(true);
+  }
 
   return (
-    <div className="space-y-6">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl border border-border shadow-card p-5 flex items-center gap-4">
-          <div className="p-3 bg-primary/10 rounded-lg text-primary">
-            <Package className="w-5 h-5" />
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-foreground">{items.length}</p>
-            <p className="text-sm text-muted-foreground">Total Items</p>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl border border-border shadow-card p-5 flex items-center gap-4">
-          <div className="p-3 bg-green-100 rounded-lg text-green-700">
-            <TrendingUp className="w-5 h-5" />
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-foreground">{totalIn}</p>
-            <p className="text-sm text-muted-foreground">Total IN</p>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl border border-border shadow-card p-5 flex items-center gap-4">
-          <div className="p-3 bg-red-100 rounded-lg text-red-600">
-            <TrendingDown className="w-5 h-5" />
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-foreground">{totalOut}</p>
-            <p className="text-sm text-muted-foreground">Total OUT</p>
-          </div>
-        </div>
+    <div className="bg-white rounded-xl shadow-card p-4">
+      <div className="flex flex-wrap gap-2 mb-4">
+        <Button
+          data-ocid="inventory.primary_button"
+          size="sm"
+          style={{ background: "#1e3a5f" }}
+          onClick={() => setAddItemOpen(true)}
+        >
+          <Plus className="h-4 w-4 mr-1" /> Add Item
+        </Button>
+        <Button
+          data-ocid="inventory.primary_button"
+          size="sm"
+          className="bg-success text-success-foreground hover:bg-success/90"
+          onClick={() => openTx("IN")}
+        >
+          Stock In
+        </Button>
+        <Button
+          data-ocid="inventory.primary_button"
+          size="sm"
+          variant="destructive"
+          onClick={() => openTx("OUT")}
+        >
+          Stock Out
+        </Button>
+        <Button
+          data-ocid="inventory.secondary_button"
+          size="sm"
+          variant="outline"
+          onClick={downloadCSV}
+          className="ml-auto"
+        >
+          <Download className="h-4 w-4 mr-1" /> Download Excel
+        </Button>
       </div>
 
-      {/* Items Table */}
-      <div className="bg-white rounded-xl border border-border shadow-card">
-        <div className="p-4 border-b border-border flex items-center justify-between gap-3">
-          <h3 className="font-semibold text-foreground">Stock Items</h3>
-          <div className="flex gap-2 flex-wrap">
-            <Button
-              size="sm"
-              variant="outline"
-              className="border-green-600 text-green-700 hover:bg-green-50"
-              onClick={() => {
-                setTxForm((f) => ({ ...f, txType: "IN" }));
-                setAddTxOpen(true);
-              }}
-              data-ocid="inventory.stock_in_button"
-            >
-              <TrendingUp className="w-4 h-4 mr-1.5" />
-              Stock In
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="border-red-500 text-red-600 hover:bg-red-50"
-              onClick={() => {
-                setTxForm((f) => ({ ...f, txType: "OUT" }));
-                setAddTxOpen(true);
-              }}
-              data-ocid="inventory.stock_out_button"
-            >
-              <TrendingDown className="w-4 h-4 mr-1.5" />
-              Stock Out
-            </Button>
-            <Button
-              size="sm"
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
-              onClick={() => setAddItemOpen(true)}
-              data-ocid="inventory.primary_button"
-            >
-              + Add Item
-            </Button>
-          </div>
+      {stockItems.length === 0 ? (
+        <div
+          data-ocid="inventory.empty_state"
+          className="text-center py-12 text-muted-foreground"
+        >
+          No stock items. Add your first item above.
         </div>
-        {isLoading ? (
-          <div
-            className="p-10 flex justify-center"
-            data-ocid="inventory.loading_state"
-          >
-            <Loader2 className="w-6 h-6 animate-spin text-primary" />
-          </div>
-        ) : items.length === 0 ? (
-          <div
-            className="p-12 text-center text-muted-foreground"
-            data-ocid="inventory.empty_state"
-          >
-            No stock items yet. Click "+ Add Item" to get started.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted">
-                <tr>
-                  {[
-                    "#",
-                    "Item Name",
-                    "Category",
-                    "Unit",
-                    "Current Stock",
-                    "Actions",
-                  ].map((h) => (
-                    <th
-                      key={h}
-                      className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap"
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {items.map((item, i) => {
-                  const stock = stockMap[String(item.id)] ?? 0;
-                  return (
-                    <tr
-                      key={String(item.id)}
-                      className="hover:bg-muted/30 transition-colors"
-                      data-ocid={`inventory.item.${i + 1}`}
-                    >
-                      <td className="px-3 py-2.5 text-muted-foreground text-xs">
-                        {i + 1}
-                      </td>
-                      <td className="px-3 py-2.5 font-medium">{item.name}</td>
-                      <td className="px-3 py-2.5">
-                        <span className="text-xs bg-muted px-2 py-0.5 rounded-full">
-                          {item.category}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2.5 text-muted-foreground">
-                        {item.unit}
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <span
-                          className={`font-semibold ${
-                            stock < 0
-                              ? "text-destructive"
-                              : stock === 0
-                                ? "text-muted-foreground"
-                                : "text-green-700"
-                          }`}
-                        >
-                          {stock} {item.unit}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 text-xs px-2 text-green-700 hover:text-green-800 hover:bg-green-50"
-                            onClick={() => {
-                              setTxForm((f) => ({
-                                ...f,
-                                itemId: String(item.id),
-                                txType: "IN",
-                              }));
-                              setAddTxOpen(true);
-                            }}
-                            data-ocid={`inventory.stock_in_button.${i + 1}`}
-                          >
-                            <TrendingUp className="w-3 h-3 mr-1" /> IN
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 text-xs px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
-                            onClick={() => {
-                              setTxForm((f) => ({
-                                ...f,
-                                itemId: String(item.id),
-                                txType: "OUT",
-                              }));
-                              setAddTxOpen(true);
-                            }}
-                            data-ocid={`inventory.stock_out_button.${i + 1}`}
-                          >
-                            <TrendingDown className="w-3 h-3 mr-1" /> OUT
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-destructive hover:text-destructive"
-                            onClick={() => setDeleteItemId(item.id)}
-                            data-ocid={`inventory.delete_button.${i + 1}`}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Transaction Log */}
-      <div className="bg-white rounded-xl border border-border shadow-card">
-        <div className="p-4 border-b border-border flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-          <h3 className="font-semibold text-foreground">Transaction Log</h3>
-          <div className="flex gap-2 items-center sm:ml-4">
-            <Label className="text-xs whitespace-nowrap">From</Label>
-            <Input
-              type="date"
-              value={txFrom}
-              onChange={(e) => setTxFrom(e.target.value)}
-              className="w-36"
-              style={{ backgroundColor: "#fff" }}
-            />
-            <Label className="text-xs whitespace-nowrap">To</Label>
-            <Input
-              type="date"
-              value={txTo}
-              onChange={(e) => setTxTo(e.target.value)}
-              className="w-36"
-              style={{ backgroundColor: "#fff" }}
-            />
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="sm:ml-auto"
-            onClick={() => downloadInventoryCSV(items, transactions)}
-            data-ocid="inventory.download_button"
-          >
-            <Download className="w-4 h-4 mr-1.5" />
-            Download Excel
-          </Button>
-        </div>
-        {filteredTx.length === 0 ? (
-          <div
-            className="p-12 text-center text-muted-foreground"
-            data-ocid="inventory.empty_state"
-          >
-            No transactions found.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted">
-                <tr>
-                  {[
-                    "#",
-                    "Date",
-                    "Item Name",
-                    "Type",
-                    "Quantity",
-                    "Notes",
-                    "Actions",
-                  ].map((h) => (
-                    <th
-                      key={h}
-                      className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap"
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {filteredTx.map((tx, i) => {
-                  const item = itemMap.get(String(tx.itemId));
-                  return (
-                    <tr
-                      key={String(tx.id)}
-                      className="hover:bg-muted/30 transition-colors"
-                      data-ocid={`inventory.row.${i + 1}`}
-                    >
-                      <td className="px-3 py-2.5 text-muted-foreground text-xs">
-                        {i + 1}
-                      </td>
-                      <td className="px-3 py-2.5 whitespace-nowrap text-xs">
-                        {formatDate(tx.timestamp)}
-                      </td>
-                      <td className="px-3 py-2.5 font-medium">
-                        {item?.name ?? "—"}
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <span
-                          className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${
-                            tx.txType === "IN"
-                              ? "bg-green-100 text-green-700"
-                              : "bg-red-100 text-red-600"
-                          }`}
-                        >
-                          {tx.txType === "IN" ? (
-                            <TrendingUp className="w-3 h-3" />
-                          ) : (
-                            <TrendingDown className="w-3 h-3" />
-                          )}
-                          {tx.txType}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2.5 font-semibold">
-                        {String(tx.quantity)}
-                      </td>
-                      <td className="px-3 py-2.5 text-muted-foreground max-w-xs truncate">
-                        {tx.notes || "—"}
-                      </td>
-                      <td className="px-3 py-2.5">
+      ) : (
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Item Name</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead>Unit</TableHead>
+                <TableHead className="text-center">Total In</TableHead>
+                <TableHead className="text-center">Total Out</TableHead>
+                <TableHead className="text-center">Current Stock</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {stockItems.map((item, idx) => {
+                const inQ = calcIn(item.id);
+                const outQ = calcOut(item.id);
+                const cur = inQ - outQ;
+                return (
+                  <TableRow
+                    key={String(item.id)}
+                    data-ocid={`inventory.item.${idx + 1}`}
+                  >
+                    <TableCell className="font-medium">{item.name}</TableCell>
+                    <TableCell>{item.category}</TableCell>
+                    <TableCell>{item.unit}</TableCell>
+                    <TableCell className="text-center text-success">
+                      {inQ}
+                    </TableCell>
+                    <TableCell className="text-center text-destructive">
+                      {outQ}
+                    </TableCell>
+                    <TableCell className="text-center font-bold">
+                      {cur}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
                         <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-destructive hover:text-destructive"
-                          onClick={() => handleDeleteTx(tx.id)}
-                          data-ocid={`inventory.delete_button.${i + 1}`}
+                          data-ocid={`inventory.primary_button.${idx + 1}`}
+                          size="sm"
+                          className="h-7 text-xs bg-success text-success-foreground hover:bg-success/90"
+                          onClick={() => quickTx(item.id, "IN")}
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          +1 IN
                         </Button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                        <Button
+                          data-ocid={`inventory.delete_button.${idx + 1}`}
+                          size="sm"
+                          variant="destructive"
+                          className="h-7 text-xs"
+                          onClick={() => quickTx(item.id, "OUT")}
+                        >
+                          -1 OUT
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
       {/* Add Item Dialog */}
       <Dialog open={addItemOpen} onOpenChange={setAddItemOpen}>
-        <DialogContent data-ocid="inventory.dialog">
+        <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle className="font-display">Add Stock Item</DialogTitle>
+            <DialogTitle>Add Stock Item</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
+          <div className="space-y-3 py-2">
+            <div>
               <Label>Item Name</Label>
               <Input
-                value={itemForm.name}
-                onChange={(e) =>
-                  setItemForm((f) => ({ ...f, name: e.target.value }))
-                }
-                placeholder="e.g. Yonex BG65"
-                style={{ backgroundColor: "#fff" }}
                 data-ocid="inventory.input"
+                className="mt-1"
+                placeholder="e.g. BG65 String"
+                value={newItem.name}
+                onChange={(e) =>
+                  setNewItem({ ...newItem, name: e.target.value })
+                }
               />
             </div>
-            <div className="space-y-1.5">
+            <div>
               <Label>Category</Label>
               <Select
-                value={itemForm.category}
-                onValueChange={(v) =>
-                  setItemForm((f) => ({ ...f, category: v }))
-                }
+                value={newItem.category}
+                onValueChange={(v) => setNewItem({ ...newItem, category: v })}
               >
-                <SelectTrigger
-                  style={{ backgroundColor: "#fff" }}
-                  data-ocid="inventory.select"
-                >
+                <SelectTrigger data-ocid="inventory.select" className="mt-1">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {STOCK_CATEGORIES.map((c) => (
+                  {CATEGORIES.map((c) => (
                     <SelectItem key={c} value={c}>
                       {c}
                     </SelectItem>
@@ -1684,20 +1437,17 @@ function InventoryTab() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
+            <div>
               <Label>Unit</Label>
               <Select
-                value={itemForm.unit}
-                onValueChange={(v) => setItemForm((f) => ({ ...f, unit: v }))}
+                value={newItem.unit}
+                onValueChange={(v) => setNewItem({ ...newItem, unit: v })}
               >
-                <SelectTrigger
-                  style={{ backgroundColor: "#fff" }}
-                  data-ocid="inventory.select"
-                >
+                <SelectTrigger data-ocid="inventory.select" className="mt-1">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {STOCK_UNITS.map((u) => (
+                  {UNITS.map((u) => (
                     <SelectItem key={u} value={u}>
                       {u}
                     </SelectItem>
@@ -1707,282 +1457,89 @@ function InventoryTab() {
             </div>
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setAddItemOpen(false)}
-              data-ocid="inventory.cancel_button"
-            >
+            <Button variant="outline" onClick={() => setAddItemOpen(false)}>
               Cancel
             </Button>
             <Button
-              onClick={handleAddItem}
-              disabled={addItem.isPending || !itemForm.name.trim()}
-              className="bg-primary text-primary-foreground"
-              data-ocid="inventory.submit_button"
+              disabled={saving}
+              onClick={addItem}
+              style={{ background: "#1e3a5f" }}
             >
-              {addItem.isPending ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : null}
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}{" "}
               Add Item
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Record Transaction Dialog */}
+      {/* Stock Transaction Dialog */}
       <Dialog
-        open={addTxOpen}
-        onOpenChange={(open) => {
-          setAddTxOpen(open);
-          if (!open)
-            setTxForm({ itemId: "", txType: "IN", quantity: "1", notes: "" });
+        open={txOpen}
+        onOpenChange={(o) => {
+          if (!o) setTxOpen(false);
         }}
       >
-        <DialogContent data-ocid="inventory.dialog">
+        <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle className="font-display">
-              Record Transaction
-            </DialogTitle>
+            <DialogTitle>Record Stock {txType}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label>Select Item</Label>
-              <Select
-                value={txForm.itemId}
-                onValueChange={(v) => setTxForm((f) => ({ ...f, itemId: v }))}
-              >
-                <SelectTrigger
-                  style={{ backgroundColor: "#fff" }}
-                  data-ocid="inventory.select"
-                >
-                  <SelectValue placeholder="Choose item..." />
+          <div className="space-y-3 py-2">
+            <div>
+              <Label>Item</Label>
+              <Select value={txItemId} onValueChange={setTxItemId}>
+                <SelectTrigger data-ocid="inventory.select" className="mt-1">
+                  <SelectValue placeholder="Select item…" />
                 </SelectTrigger>
                 <SelectContent>
-                  {items.map((it) => (
-                    <SelectItem key={String(it.id)} value={String(it.id)}>
-                      {it.name} ({it.unit})
+                  {stockItems.map((i) => (
+                    <SelectItem key={String(i.id)} value={String(i.id)}>
+                      {i.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
-              <Label>Type</Label>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={txForm.txType === "IN" ? "default" : "outline"}
-                  className={
-                    txForm.txType === "IN"
-                      ? "bg-green-600 hover:bg-green-700 text-white"
-                      : ""
-                  }
-                  onClick={() => setTxForm((f) => ({ ...f, txType: "IN" }))}
-                  data-ocid="inventory.toggle"
-                >
-                  <TrendingUp className="w-4 h-4 mr-1" /> IN
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={txForm.txType === "OUT" ? "default" : "outline"}
-                  className={
-                    txForm.txType === "OUT"
-                      ? "bg-red-600 hover:bg-red-700 text-white"
-                      : ""
-                  }
-                  onClick={() => setTxForm((f) => ({ ...f, txType: "OUT" }))}
-                  data-ocid="inventory.toggle"
-                >
-                  <TrendingDown className="w-4 h-4 mr-1" /> OUT
-                </Button>
-              </div>
-            </div>
-            <div className="space-y-1.5">
+            <div>
               <Label>Quantity</Label>
               <Input
-                type="number"
-                min={1}
-                value={txForm.quantity}
-                onChange={(e) =>
-                  setTxForm((f) => ({ ...f, quantity: e.target.value }))
-                }
-                style={{ backgroundColor: "#fff" }}
                 data-ocid="inventory.input"
+                type="number"
+                min="1"
+                className="mt-1"
+                value={txQty}
+                onChange={(e) => setTxQty(e.target.value)}
               />
             </div>
-            <div className="space-y-1.5">
-              <Label>Notes</Label>
+            <div>
+              <Label>Notes (optional)</Label>
               <Input
-                value={txForm.notes}
-                onChange={(e) =>
-                  setTxForm((f) => ({ ...f, notes: e.target.value }))
-                }
-                placeholder="e.g. Received from supplier"
-                style={{ backgroundColor: "#fff" }}
                 data-ocid="inventory.input"
+                className="mt-1"
+                placeholder="e.g. Monthly restock"
+                value={txNotes}
+                onChange={(e) => setTxNotes(e.target.value)}
               />
             </div>
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setAddTxOpen(false)}
-              data-ocid="inventory.cancel_button"
-            >
+            <Button variant="outline" onClick={() => setTxOpen(false)}>
               Cancel
             </Button>
             <Button
-              onClick={handleAddTx}
-              disabled={addTx.isPending || !txForm.itemId}
-              className="bg-primary text-primary-foreground"
-              data-ocid="inventory.submit_button"
+              disabled={saving || !txItemId}
+              onClick={recordTx}
+              style={{ background: txType === "IN" ? "#1e6040" : "#8b1a1a" }}
             >
-              {addTx.isPending ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
               ) : null}
-              Record
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Item Confirm Dialog */}
-      <Dialog
-        open={deleteItemId !== null}
-        onOpenChange={(open) => !open && setDeleteItemId(null)}
-      >
-        <DialogContent data-ocid="inventory.dialog">
-          <DialogHeader>
-            <DialogTitle className="font-display">
-              Delete Stock Item
-            </DialogTitle>
-          </DialogHeader>
-          <p className="text-muted-foreground">
-            Are you sure? This will also remove all transactions for this item.
-          </p>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setDeleteItemId(null)}
-              data-ocid="inventory.cancel_button"
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDeleteItem}
-              disabled={deleteItem.isPending}
-              data-ocid="inventory.confirm_button"
-            >
-              {deleteItem.isPending ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : null}
-              Delete
+              Record {txType}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
-  );
-}
-
-function RepairRow({
-  r,
-  index,
-  onStatusChange,
-  onChargesBlur,
-  onEdit,
-  onDelete,
-}: {
-  r: RepairRequest;
-  index: number;
-  onStatusChange: (id: bigint, status: string) => void;
-  onChargesBlur: (r: RepairRequest, charges: string) => void;
-  onEdit: (r: RepairRequest) => void;
-  onDelete: (id: bigint) => void;
-}) {
-  const [localCharges, setLocalCharges] = useState(r.charges);
-  useEffect(() => {
-    setLocalCharges(r.charges);
-  }, [r.charges]);
-
-  return (
-    <tr
-      className="hover:bg-muted/30 transition-colors"
-      data-ocid={`requests.item.${index}`}
-    >
-      <td className="px-3 py-2.5 text-muted-foreground text-xs">{index}</td>
-      <td className="px-3 py-2.5 whitespace-nowrap text-xs">
-        {formatDate(r.submissionTimestamp)}
-      </td>
-      <td className="px-3 py-2.5 font-medium whitespace-nowrap">{r.name}</td>
-      <td className="px-3 py-2.5 text-muted-foreground">{r.phone}</td>
-      <td className="px-3 py-2.5">{r.racketBrand}</td>
-      <td className="px-3 py-2.5">
-        <span
-          className={`text-xs px-2 py-0.5 rounded-full border ${serviceColor(r.serviceType)}`}
-        >
-          {r.serviceType}
-        </span>
-      </td>
-      <td className="px-3 py-2.5 text-xs text-muted-foreground">
-        {r.stringType || "—"}
-      </td>
-      <td className="px-3 py-2.5 text-center">{String(r.numberOfRackets)}</td>
-      <td className="px-3 py-2.5">
-        <Select value={r.status} onValueChange={(v) => onStatusChange(r.id, v)}>
-          <SelectTrigger
-            className="h-7 text-xs w-28"
-            style={{ backgroundColor: "#fff" }}
-            data-ocid={`requests.select.${index}`}
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {STATUSES.map((s) => (
-              <SelectItem key={s} value={s} className="text-xs">
-                {s}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </td>
-      <td className="px-3 py-2.5">
-        <Input
-          value={localCharges}
-          onChange={(e) => setLocalCharges(e.target.value)}
-          onBlur={() => onChargesBlur(r, localCharges)}
-          placeholder="₹"
-          className="h-7 w-20 text-xs"
-          style={{ backgroundColor: "#fff" }}
-          data-ocid={`requests.input.${index}`}
-        />
-      </td>
-      <td className="px-3 py-2.5 text-xs">{r.paymentMode || "—"}</td>
-      <td className="px-3 py-2.5">
-        <div className="flex gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={() => onEdit(r)}
-            data-ocid={`requests.edit_button.${index}`}
-          >
-            <Pencil className="w-3.5 h-3.5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 text-destructive hover:text-destructive"
-            onClick={() => onDelete(r.id)}
-            data-ocid={`requests.delete_button.${index}`}
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </Button>
-        </div>
-      </td>
-    </tr>
   );
 }
