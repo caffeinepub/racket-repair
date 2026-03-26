@@ -907,10 +907,23 @@ function ClientsTab({ bookings }: { bookings: RepairRequest[] }) {
     bookings: RepairRequest[];
   } | null>(null);
 
+  const PREDEFINED_CLIENTS = [
+    "Andhra sports",
+    "Bharth sports",
+    "Svs sports",
+    "J h sports",
+    "G r sports",
+    "Anand sports",
+  ];
+
   const clientMap = new Map<
     string,
     { name: string; phone: string; bookings: RepairRequest[] }
   >();
+  // Seed predefined clients
+  for (const name of PREDEFINED_CLIENTS) {
+    clientMap.set(name.toLowerCase(), { name, phone: "—", bookings: [] });
+  }
   for (const b of bookings) {
     const key = b.phone;
     if (!clientMap.has(key)) {
