@@ -1656,6 +1656,15 @@ function ServiceJobsTab({
         BigInt(newJob.paid || "0"),
         newJob.notes,
       );
+      const charges = Number(newJob.charges || "0");
+      const advance = Number(newJob.advance || "0");
+      const paid = Number(newJob.paid || "0");
+      const balance = charges - advance - paid;
+      const mobile = newJob.mobileNo.replace(/\D/g, "");
+      const waMsg = encodeURIComponent(
+        `Dear ${newJob.customerName},\nYour service job at RacketFix is confirmed!\nService: ${newJob.serviceType || "Other"}\nTotal Charges: ₹${charges}\nAdvance Paid: ₹${advance}\nAmount Paid: ₹${paid}\nBalance Due: ₹${balance}\nContact us: 9440790818\nRacketFix, Visakhapatnam`,
+      );
+      window.open(`https://wa.me/91${mobile}?text=${waMsg}`, "_blank");
       setNewJob({
         customerName: "",
         mobileNo: "",
