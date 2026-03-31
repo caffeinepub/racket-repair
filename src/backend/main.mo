@@ -34,18 +34,34 @@ actor {
     timestamp : Time.Time;
   };
 
+  type ServiceJob = {
+    id : Nat;
+    customerName : Text;
+    mobileNo : Text;
+    serviceType : Text;
+    charges : Nat;
+    advance : Nat;
+    paid : Nat;
+    status : Text;
+    notes : Text;
+    timestamp : Time.Time;
+  };
+
   // Stable storage
   stable var stableRepairRequests : [RepairRequest] = [];
   stable var stableStockItems : [StockItem] = [];
   stable var stableStockTransactions : [StockTransaction] = [];
+  stable var stableServiceJobs : [ServiceJob] = [];
   stable var nextRequestId : Nat = 0;
   stable var nextStockItemId : Nat = 0;
   stable var nextTransactionId : Nat = 0;
+  stable var nextServiceJobId : Nat = 0;
 
   // In-memory maps (rebuilt from stable on upgrade)
   let repairRequests = Map.empty<Nat, RepairRequest>();
   let stockItems = Map.empty<Nat, StockItem>();
   let stockTransactions = Map.empty<Nat, StockTransaction>();
+  let serviceJobs = Map.empty<Nat, ServiceJob>();
 
   // Initialize from stable storage on first deploy / after upgrade
   private func restoreFromStable() {
@@ -58,6 +74,9 @@ actor {
     for (t in stableStockTransactions.vals()) {
       stockTransactions.add(t.id, t);
     };
+    for (j in stableServiceJobs.vals()) {
+      serviceJobs.add(j.id, j);
+    };
   };
 
   restoreFromStable();
@@ -66,13 +85,14 @@ actor {
     stableRepairRequests := repairRequests.values().toArray();
     stableStockItems := stockItems.values().toArray();
     stableStockTransactions := stockTransactions.values().toArray();
+    stableServiceJobs := serviceJobs.values().toArray();
   };
 
   system func postupgrade() {
     restoreFromStable();
   };
 
-  // Repair Request Methods
+  // ─── Repair Request Methods ───────────────────────────────────────────
 
   public shared func submitRepairRequest(
     name : Text,
@@ -170,7 +190,7 @@ actor {
     };
   };
 
-  // Stock Inventory System
+  // ─── Stock Inventory ─────────────────────────────────────────────────
 
   public shared func addStockItem(name : Text, category : Text, unit : Text) : async () {
     let item : StockItem = {
@@ -226,6 +246,83 @@ actor {
     if (stockTransactions.containsKey(id)) {
       stockTransactions.remove(id);
       stableStockTransactions := stockTransactions.values().toArray();
+      true;
+    } else {
+      false;
+    };
+  };
+
+  // ─── Service Jobs ─────────────────────────────────────────────────────
+
+  public shared func addServiceJob(
+    customerName : Text,
+    mobileNo : Text,
+    serviceType : Text,
+    charges : Nat,
+    advance : Nat,
+    paid : Nat,
+    notes : Text,
+  ) : async Nat {
+    let job : ServiceJob = {
+      id = nextServiceJobId;
+      customerName;
+      mobileNo;
+      serviceType;
+      charges;
+      advance;
+      paid;
+      status = "Pending";
+      notes;
+      timestamp = Time.now();
+    };
+    serviceJobs.add(nextServiceJobId, job);
+    stableServiceJobs := serviceJobs.values().toArray();
+    let jobId = nextServiceJobId;
+    nextServiceJobId += 1;
+    jobId;
+  };
+
+  public query func getAllServiceJobs() : async [ServiceJob] {
+    serviceJobs.values().toArray();
+  };
+
+  public shared func updateServiceJob(
+    id : Nat,
+    customerName : Text,
+    mobileNo : Text,
+    serviceType : Text,
+    charges : Nat,
+    advance : Nat,
+    paid : Nat,
+    status : Text,
+    notes : Text,
+  ) : async Bool {
+    switch (serviceJobs.get(id)) {
+      case (null) { false };
+      case (?existing) {
+        let updated : ServiceJob = {
+          id;
+          customerName;
+          mobileNo;
+          serviceType;
+          charges;
+          advance;
+          paid;
+          status;
+          notes;
+          timestamp = existing.timestamp;
+        };
+        serviceJobs.add(id, updated);
+        stableServiceJobs := serviceJobs.values().toArray();
+        true;
+      };
+    };
+  };
+
+  public shared func deleteServiceJob(id : Nat) : async Bool {
+    if (serviceJobs.containsKey(id)) {
+      serviceJobs.remove(id);
+      stableServiceJobs := serviceJobs.values().toArray();
       true;
     } else {
       false;

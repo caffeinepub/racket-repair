@@ -39,6 +39,18 @@ export interface StockTransaction {
   'quantity' : bigint,
   'txType' : string,
 }
+export interface ServiceJob {
+  'id' : bigint,
+  'customerName' : string,
+  'mobileNo' : string,
+  'serviceType' : string,
+  'charges' : bigint,
+  'advance' : bigint,
+  'paid' : bigint,
+  'status' : string,
+  'notes' : string,
+  'timestamp' : Time,
+}
 export type Time = bigint;
 export interface _SERVICE {
   'addStockItem' : ActorMethod<[string, string, string], undefined>,
@@ -74,6 +86,16 @@ export interface _SERVICE {
     boolean
   >,
   'updateStatus' : ActorMethod<[bigint, string], boolean>,
+  'addServiceJob' : ActorMethod<
+    [string, string, string, bigint, bigint, bigint, string],
+    bigint
+  >,
+  'getAllServiceJobs' : ActorMethod<[], Array<ServiceJob>>,
+  'updateServiceJob' : ActorMethod<
+    [bigint, string, string, string, bigint, bigint, bigint, string, string],
+    boolean
+  >,
+  'deleteServiceJob' : ActorMethod<[bigint], boolean>,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];

@@ -1,37 +1,32 @@
-# RacketFix
+# RacketFix – Service Jobs Feature
 
 ## Current State
-RacketFix is a badminton/cricket repair website with:
-- Homepage with booking form
-- Admin dashboard at /admin with Repair Requests, Clients, and Restringing tabs
-- Backend storing repair requests in stable storage
+Admin dashboard has 4 tabs: Repair Requests, Clients, Restringing, Inventory.
+Backend stores RepairRequest, StockItem, StockTransaction in stable storage.
+No dedicated service job tracking with advance/paid/balance breakdown.
 
 ## Requested Changes (Diff)
 
 ### Add
-- Stock inventory system in admin dashboard as a new "Inventory" tab
-- Inventory items (e.g. Grip tape, BG65 String, Grommets) with name, category, and current stock quantity
-- Stock transactions: IN (stock received) and OUT (stock used/sold) with date, quantity, notes, and item reference
-- Computed current stock per item (starting qty + all IN - all OUT transactions)
-- Excel/CSV download button that exports all stock transactions with columns: Date, Item Name, Category, Type (IN/OUT), Quantity, Notes, Running Balance
-- Add Item dialog, Record Transaction dialog
-- Date filter for transactions view
+- New `ServiceJob` type in backend: id, customerName, mobileNo, serviceType, charges, advance, paid, balance (derived), status, timestamp
+- Backend CRUD: addServiceJob, getAllServiceJobs, updateServiceJob, deleteServiceJob
+- New "Service Jobs" tab in admin dashboard (5th tab)
+- Add Service Job form: Customer Name, Mobile No, Type of Service, Charges, Advance, Paid (Balance auto-calculated = Charges - Advance - Paid)
+- Service Jobs list table: all fields, edit, delete, status badge
+- WhatsApp notification button per job row: opens WhatsApp to customer mobile with job summary
+- Separate printable report for Service Jobs with date filter
+- Stats cards for Service Jobs: Total Jobs, Total Charges, Total Balance Due
 
 ### Modify
-- Backend: add inventory item and transaction types + CRUD functions
-- AdminPage: add 4th tab "Inventory"
+- Dashboard `loadData` to also fetch service jobs
+- Stats row to include Service Jobs count
 
 ### Remove
 - Nothing removed
 
 ## Implementation Plan
-1. Add `StockItem` and `StockTransaction` types to Motoko backend
-2. Add stable storage and CRUD functions: addStockItem, getStockItems, deleteStockItem, addStockTransaction, getStockTransactions, deleteStockTransaction
-3. Regenerate backend.d.ts bindings
-4. Add Inventory tab to AdminPage with:
-   - Stock summary cards (total items, low stock alerts)
-   - Items list table with current quantity
-   - Transaction log with date filter
-   - Add Item dialog
-   - Record IN/OUT transaction dialog
-   - Download Excel (CSV) button
+1. Add `ServiceJob` type and stable storage vars to `main.mo`
+2. Add `addServiceJob`, `getAllServiceJobs`, `updateServiceJob`, `deleteServiceJob` methods
+3. Add `ServiceJobsTab` component in AdminPage with form + table + WhatsApp + print report
+4. Wire loadData to fetch service jobs alongside existing data
+5. Add 5th TabsTrigger/TabsContent for Service Jobs

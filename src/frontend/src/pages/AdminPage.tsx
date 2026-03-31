@@ -41,6 +41,7 @@ import {
   Download,
   Loader2,
   LogOut,
+  MessageSquare,
   Plus,
   Printer,
   RefreshCw,
@@ -109,6 +110,31 @@ interface EditForm {
   status: string;
   numberOfRackets: string;
   charges: string;
+}
+
+// ServiceJob type (mirrors backend.did.d.ts)
+interface ServiceJob {
+  id: bigint;
+  customerName: string;
+  mobileNo: string;
+  serviceType: string;
+  charges: bigint;
+  advance: bigint;
+  paid: bigint;
+  status: string;
+  notes: string;
+  timestamp: bigint;
+}
+
+interface ServiceJobForm {
+  customerName: string;
+  mobileNo: string;
+  serviceType: string;
+  charges: string;
+  advance: string;
+  paid: string;
+  status: string;
+  notes: string;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -202,6 +228,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [bookings, setBookings] = useState<RepairRequest[]>([]);
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [stockTxns, setStockTxns] = useState<StockTransaction[]>([]);
+  const [serviceJobs, setServiceJobs] = useState<ServiceJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -211,17 +238,21 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     clearActorCache();
     try {
       const actor = await getActor();
-      const [rr, si, st] = await Promise.all([
+      const icActor = (actor as any).actor;
+      const [rr, si, st, sj] = await Promise.all([
         actor.getAllRepairRequests(),
         actor.getStockItems(),
         actor.getStockTransactions(),
+        icActor.getAllServiceJobs() as Promise<ServiceJob[]>,
       ]);
       rr.sort(
         (a, b) => Number(b.submissionTimestamp) - Number(a.submissionTimestamp),
       );
+      sj.sort((a, b) => Number(b.timestamp) - Number(a.timestamp));
       setBookings(rr);
       setStockItems(si);
       setStockTxns(st);
+      setServiceJobs(sj);
     } catch {
       setError("Failed to load data. Please retry.");
     } finally {
@@ -322,6 +353,9 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               <TabsTrigger data-ocid="admin.tab" value="inventory">
                 Inventory
               </TabsTrigger>
+              <TabsTrigger data-ocid="admin.tab" value="servicejobs">
+                Service Jobs
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="repairs">
@@ -339,6 +373,9 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                 stockTxns={stockTxns}
                 onRefresh={loadData}
               />
+            </TabsContent>
+            <TabsContent value="servicejobs">
+              <ServiceJobsTab serviceJobs={serviceJobs} onRefresh={loadData} />
             </TabsContent>
           </Tabs>
         </main>
@@ -1553,6 +1590,743 @@ function InventoryTab({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Service Jobs Tab
+// ═══════════════════════════════════════════════════════════════════════════
+
+function ServiceJobsTab({
+  serviceJobs,
+  onRefresh,
+}: {
+  serviceJobs: ServiceJob[];
+  onRefresh: () => void;
+}) {
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newJob, setNewJob] = useState({
+    customerName: "",
+    mobileNo: "",
+    serviceType: "Restringing",
+    charges: "",
+    advance: "",
+    paid: "",
+    notes: "",
+  });
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [editTarget, setEditTarget] = useState<ServiceJob | null>(null);
+  const [editForm, setEditForm] = useState<ServiceJobForm | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ServiceJob | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  function calcBalance(
+    charges: string | bigint,
+    advance: string | bigint,
+    paid: string | bigint,
+  ) {
+    return Number(charges) - Number(advance) - Number(paid);
+  }
+
+  function filtered() {
+    return serviceJobs.filter((job) => {
+      const ts = Number(job.timestamp) / 1_000_000;
+      const d = new Date(ts);
+      const matchFrom = !fromDate || d >= new Date(fromDate);
+      const matchTo = !toDate || d <= new Date(`${toDate}T23:59:59`);
+      return matchFrom && matchTo;
+    });
+  }
+
+  async function addJob() {
+    if (!newJob.customerName.trim() || !newJob.mobileNo.trim()) return;
+    setSaving(true);
+    try {
+      const backend = await getActor();
+      const icActor = (backend as any).actor;
+      await icActor.addServiceJob(
+        newJob.customerName,
+        newJob.mobileNo,
+        newJob.serviceType || "Other",
+        BigInt(newJob.charges || "0"),
+        BigInt(newJob.advance || "0"),
+        BigInt(newJob.paid || "0"),
+        newJob.notes,
+      );
+      setNewJob({
+        customerName: "",
+        mobileNo: "",
+        serviceType: "Restringing",
+        charges: "",
+        advance: "",
+        paid: "",
+        notes: "",
+      });
+      setShowAddForm(false);
+      onRefresh();
+    } catch {
+      alert("Failed to add service job.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function sendWhatsApp(job: ServiceJob) {
+    const mobile = job.mobileNo.replace(/\D/g, "");
+    const balance = calcBalance(job.charges, job.advance, job.paid);
+    const msg = encodeURIComponent(
+      `Dear ${job.customerName},\nYour service job at RacketFix is confirmed!\nService: ${job.serviceType}\nTotal Charges: ₹${Number(job.charges)}\nAdvance Paid: ₹${Number(job.advance)}\nAmount Paid: ₹${Number(job.paid)}\nBalance Due: ₹${balance}\nStatus: ${job.status}\nContact us: 9440790818\nRacketFix, Visakhapatnam`,
+    );
+    window.open(`https://wa.me/91${mobile}?text=${msg}`, "_blank");
+  }
+
+  function openEdit(job: ServiceJob) {
+    setEditTarget(job);
+    setEditForm({
+      customerName: job.customerName,
+      mobileNo: job.mobileNo,
+      serviceType: job.serviceType,
+      charges: String(Number(job.charges)),
+      advance: String(Number(job.advance)),
+      paid: String(Number(job.paid)),
+      status: job.status,
+      notes: job.notes,
+    });
+  }
+
+  async function saveEdit() {
+    if (!editTarget || !editForm) return;
+    setSaving(true);
+    try {
+      const backend = await getActor();
+      const icActor = (backend as any).actor;
+      await icActor.updateServiceJob(
+        editTarget.id,
+        editForm.customerName,
+        editForm.mobileNo,
+        editForm.serviceType,
+        BigInt(editForm.charges || "0"),
+        BigInt(editForm.advance || "0"),
+        BigInt(editForm.paid || "0"),
+        editForm.status,
+        editForm.notes,
+      );
+      setEditTarget(null);
+      setEditForm(null);
+      onRefresh();
+    } catch {
+      alert("Failed to save changes.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const backend = await getActor();
+      const icActor = (backend as any).actor;
+      await icActor.deleteServiceJob(deleteTarget.id);
+      setDeleteTarget(null);
+      onRefresh();
+    } catch {
+      alert("Failed to delete.");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  function printReport() {
+    const rows = filtered();
+    const dateHeader =
+      fromDate && toDate
+        ? `${fromDate} to ${toDate}`
+        : fromDate
+          ? `From ${fromDate}`
+          : toDate
+            ? `To ${toDate}`
+            : "All Dates";
+    const tableRows = rows
+      .map((j, i) => {
+        const balance = calcBalance(j.charges, j.advance, j.paid);
+        return `<tr style="background:${i % 2 === 0 ? "#f8fafd" : "white"}">
+          <td>${formatDate(j.timestamp)}</td>
+          <td>${j.customerName}</td>
+          <td>${j.mobileNo}</td>
+          <td>${j.serviceType}</td>
+          <td>₹${Number(j.charges).toLocaleString("en-IN")}</td>
+          <td>₹${Number(j.advance).toLocaleString("en-IN")}</td>
+          <td>₹${Number(j.paid).toLocaleString("en-IN")}</td>
+          <td style="color:${balance > 0 ? "red" : "green"}">₹${balance.toLocaleString("en-IN")}</td>
+          <td>${j.status}</td>
+        </tr>`;
+      })
+      .join("");
+    const win = window.open("", "_blank");
+    if (!win) return;
+    win.document.write(`
+      <html><head><title>RacketFix – Service Jobs Report</title>
+      <style>
+        body { font-family: Arial, sans-serif; padding: 24px; }
+        h2 { color: #1e3a5f; }
+        table { width:100%; border-collapse:collapse; font-size:13px; }
+        th { background:#1e3a5f; color:white; padding:8px 6px; text-align:left; }
+        td { padding:6px; border-bottom:1px solid #e2e8f0; }
+        .meta { color:#555; font-size:13px; margin-bottom:16px; }
+      </style></head><body>
+      <h2>RacketFix – Service Jobs Report</h2>
+      <p class="meta">Date Range: <strong>${dateHeader}</strong> &nbsp;|&nbsp; Total: <strong>${rows.length}</strong></p>
+      <table>
+        <thead><tr>
+          <th>Date</th><th>Customer</th><th>Mobile</th><th>Service</th>
+          <th>Charges</th><th>Advance</th><th>Paid</th><th>Balance</th><th>Status</th>
+        </tr></thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+      </body></html>`);
+    win.document.close();
+    win.print();
+  }
+
+  const rows = filtered();
+  const totalCharges = serviceJobs.reduce(
+    (sum, j) => sum + Number(j.charges),
+    0,
+  );
+  const totalBalance = serviceJobs.reduce(
+    (sum, j) => sum + calcBalance(j.charges, j.advance, j.paid),
+    0,
+  );
+  const newJobBalance = calcBalance(
+    newJob.charges,
+    newJob.advance,
+    newJob.paid,
+  );
+  const editBalance = editForm
+    ? calcBalance(editForm.charges, editForm.advance, editForm.paid)
+    : 0;
+
+  return (
+    <div className="space-y-4">
+      {/* Stats Row */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white rounded-xl p-4 shadow-card">
+          <p className="text-muted-foreground text-xs uppercase tracking-wide">
+            Total Jobs
+          </p>
+          <p className="text-3xl font-bold text-primary mt-1">
+            {serviceJobs.length}
+          </p>
+        </div>
+        <div className="bg-white rounded-xl p-4 shadow-card">
+          <p className="text-muted-foreground text-xs uppercase tracking-wide">
+            Total Charges
+          </p>
+          <p className="text-3xl font-bold text-primary mt-1">
+            ₹{totalCharges.toLocaleString("en-IN")}
+          </p>
+        </div>
+        <div className="bg-white rounded-xl p-4 shadow-card">
+          <p className="text-muted-foreground text-xs uppercase tracking-wide">
+            Total Balance Due
+          </p>
+          <p
+            className={`text-3xl font-bold mt-1 ${totalBalance > 0 ? "text-destructive" : "text-success"}`}
+          >
+            ₹{totalBalance.toLocaleString("en-IN")}
+          </p>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-card p-4">
+        {/* Header row */}
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold text-primary text-base">Service Jobs</h3>
+          <Button
+            data-ocid="servicejobs.open_modal_button"
+            size="sm"
+            style={{ background: "#1e3a5f" }}
+            onClick={() => setShowAddForm(!showAddForm)}
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            {showAddForm ? "Cancel" : "Add Service Job"}
+          </Button>
+        </div>
+
+        {/* Add form */}
+        {showAddForm && (
+          <div className="border rounded-lg p-4 mb-4 bg-slate-50">
+            <h4 className="font-medium mb-3 text-sm text-primary">
+              New Service Job
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Customer Name *</Label>
+                <Input
+                  data-ocid="servicejobs.input"
+                  className="mt-1"
+                  placeholder="Customer name"
+                  value={newJob.customerName}
+                  onChange={(e) =>
+                    setNewJob({ ...newJob, customerName: e.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Mobile No *</Label>
+                <Input
+                  data-ocid="servicejobs.input"
+                  className="mt-1"
+                  placeholder="10-digit mobile number"
+                  value={newJob.mobileNo}
+                  onChange={(e) =>
+                    setNewJob({ ...newJob, mobileNo: e.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Type of Service</Label>
+                <Select
+                  value={newJob.serviceType}
+                  onValueChange={(v) =>
+                    setNewJob({ ...newJob, serviceType: v })
+                  }
+                >
+                  <SelectTrigger
+                    data-ocid="servicejobs.select"
+                    className="mt-1"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SERVICE_TYPES.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Charges (₹)</Label>
+                <Input
+                  data-ocid="servicejobs.input"
+                  type="number"
+                  min="0"
+                  className="mt-1"
+                  placeholder="0"
+                  value={newJob.charges}
+                  onChange={(e) =>
+                    setNewJob({ ...newJob, charges: e.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Advance (₹)</Label>
+                <Input
+                  data-ocid="servicejobs.input"
+                  type="number"
+                  min="0"
+                  className="mt-1"
+                  placeholder="0"
+                  value={newJob.advance}
+                  onChange={(e) =>
+                    setNewJob({ ...newJob, advance: e.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Paid (₹)</Label>
+                <Input
+                  data-ocid="servicejobs.input"
+                  type="number"
+                  min="0"
+                  className="mt-1"
+                  placeholder="0"
+                  value={newJob.paid}
+                  onChange={(e) =>
+                    setNewJob({ ...newJob, paid: e.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Balance Due (₹)</Label>
+                <div
+                  className={`mt-1 px-3 py-2 rounded border text-sm font-semibold ${
+                    newJobBalance > 0
+                      ? "text-destructive border-destructive/30 bg-destructive/5"
+                      : "text-success border-success/30 bg-success/5"
+                  }`}
+                >
+                  ₹{newJobBalance}
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs">Notes (optional)</Label>
+                <Input
+                  data-ocid="servicejobs.input"
+                  className="mt-1"
+                  placeholder="Optional notes"
+                  value={newJob.notes}
+                  onChange={(e) =>
+                    setNewJob({ ...newJob, notes: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+            <div className="flex justify-end mt-3">
+              <Button
+                data-ocid="servicejobs.submit_button"
+                disabled={
+                  saving ||
+                  !newJob.customerName.trim() ||
+                  !newJob.mobileNo.trim()
+                }
+                onClick={addJob}
+                style={{ background: "#1e3a5f" }}
+              >
+                {saving ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : null}
+                Save Job
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Date filter + Print */}
+        <div className="flex flex-wrap gap-3 mb-4 items-center">
+          <div className="flex items-center gap-2">
+            <Label className="text-xs text-muted-foreground whitespace-nowrap">
+              From
+            </Label>
+            <Input
+              data-ocid="servicejobs.input"
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="w-36"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Label className="text-xs text-muted-foreground whitespace-nowrap">
+              To
+            </Label>
+            <Input
+              data-ocid="servicejobs.input"
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="w-36"
+            />
+          </div>
+          <Button
+            data-ocid="servicejobs.primary_button"
+            size="sm"
+            onClick={printReport}
+            style={{ background: "#1e3a5f" }}
+            className="ml-auto"
+          >
+            <Printer className="h-4 w-4 mr-1" /> Print Report
+          </Button>
+        </div>
+
+        {/* Jobs table */}
+        {rows.length === 0 ? (
+          <div
+            data-ocid="servicejobs.empty_state"
+            className="text-center py-12 text-muted-foreground"
+          >
+            No service jobs found.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Customer</TableHead>
+                  <TableHead>Mobile</TableHead>
+                  <TableHead>Service</TableHead>
+                  <TableHead>Charges</TableHead>
+                  <TableHead>Advance</TableHead>
+                  <TableHead>Paid</TableHead>
+                  <TableHead>Balance</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((job, idx) => {
+                  const balance = calcBalance(
+                    job.charges,
+                    job.advance,
+                    job.paid,
+                  );
+                  return (
+                    <TableRow
+                      key={String(job.id)}
+                      data-ocid={`servicejobs.item.${idx + 1}`}
+                    >
+                      <TableCell className="text-xs">
+                        {formatDate(job.timestamp)}
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {job.customerName}
+                      </TableCell>
+                      <TableCell>{job.mobileNo}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-xs">
+                          {job.serviceType || "—"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        ₹{Number(job.charges).toLocaleString("en-IN")}
+                      </TableCell>
+                      <TableCell>
+                        ₹{Number(job.advance).toLocaleString("en-IN")}
+                      </TableCell>
+                      <TableCell>
+                        ₹{Number(job.paid).toLocaleString("en-IN")}
+                      </TableCell>
+                      <TableCell
+                        className={
+                          balance > 0
+                            ? "text-destructive font-semibold"
+                            : "text-success font-semibold"
+                        }
+                      >
+                        ₹{balance.toLocaleString("en-IN")}
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={statusColor(job.status)}>
+                          {job.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button
+                            data-ocid={`servicejobs.primary_button.${idx + 1}`}
+                            size="sm"
+                            className="h-7 text-xs bg-success text-success-foreground hover:bg-success/90"
+                            onClick={() => sendWhatsApp(job)}
+                          >
+                            <MessageSquare className="h-3 w-3 mr-1" /> WA
+                          </Button>
+                          <Button
+                            data-ocid={`servicejobs.edit_button.${idx + 1}`}
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs"
+                            onClick={() => openEdit(job)}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            data-ocid={`servicejobs.delete_button.${idx + 1}`}
+                            size="sm"
+                            variant="destructive"
+                            className="h-7 text-xs"
+                            onClick={() => setDeleteTarget(job)}
+                          >
+                            Del
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
+
+      {/* Edit Dialog */}
+      <Dialog
+        open={!!editTarget}
+        onOpenChange={(o) => {
+          if (!o) {
+            setEditTarget(null);
+            setEditForm(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Service Job</DialogTitle>
+          </DialogHeader>
+          {editForm && (
+            <div className="space-y-3 py-2">
+              <FormRow label="Customer Name">
+                <Input
+                  value={editForm.customerName}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, customerName: e.target.value })
+                  }
+                />
+              </FormRow>
+              <FormRow label="Mobile No">
+                <Input
+                  value={editForm.mobileNo}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, mobileNo: e.target.value })
+                  }
+                />
+              </FormRow>
+              <FormRow label="Service Type">
+                <Select
+                  value={editForm.serviceType}
+                  onValueChange={(v) =>
+                    setEditForm({ ...editForm, serviceType: v })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SERVICE_TYPES.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FormRow>
+              <FormRow label="Charges (₹)">
+                <Input
+                  type="number"
+                  min="0"
+                  value={editForm.charges}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, charges: e.target.value })
+                  }
+                />
+              </FormRow>
+              <FormRow label="Advance (₹)">
+                <Input
+                  type="number"
+                  min="0"
+                  value={editForm.advance}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, advance: e.target.value })
+                  }
+                />
+              </FormRow>
+              <FormRow label="Paid (₹)">
+                <Input
+                  type="number"
+                  min="0"
+                  value={editForm.paid}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, paid: e.target.value })
+                  }
+                />
+              </FormRow>
+              <FormRow label="Balance (₹)">
+                <div
+                  className={`px-3 py-2 rounded border text-sm font-semibold ${
+                    editBalance > 0
+                      ? "text-destructive border-destructive/30 bg-destructive/5"
+                      : "text-success border-success/30 bg-success/5"
+                  }`}
+                >
+                  ₹{editBalance.toLocaleString("en-IN")}
+                </div>
+              </FormRow>
+              <FormRow label="Status">
+                <Select
+                  value={editForm.status}
+                  onValueChange={(v) => setEditForm({ ...editForm, status: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STATUSES.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FormRow>
+              <FormRow label="Notes">
+                <Input
+                  value={editForm.notes}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, notes: e.target.value })
+                  }
+                  placeholder="Optional notes"
+                />
+              </FormRow>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEditTarget(null);
+                setEditForm(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={saving}
+              onClick={saveEdit}
+              style={{ background: "#1e3a5f" }}
+            >
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirm */}
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => {
+          if (!o) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Service Job?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the service job for{" "}
+              <strong>{deleteTarget?.customerName}</strong>. This action cannot
+              be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              data-ocid="servicejobs.cancel_button"
+              onClick={() => setDeleteTarget(null)}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              data-ocid="servicejobs.confirm_button"
+              onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground"
+              disabled={deleting}
+            >
+              {deleting ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

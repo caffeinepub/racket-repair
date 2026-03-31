@@ -38,6 +38,18 @@ export const StockTransaction = IDL.Record({
   'quantity' : IDL.Nat,
   'txType' : IDL.Text,
 });
+export const ServiceJob = IDL.Record({
+  'id' : IDL.Nat,
+  'customerName' : IDL.Text,
+  'mobileNo' : IDL.Text,
+  'serviceType' : IDL.Text,
+  'charges' : IDL.Nat,
+  'advance' : IDL.Nat,
+  'paid' : IDL.Nat,
+  'status' : IDL.Text,
+  'notes' : IDL.Text,
+  'timestamp' : Time,
+});
 
 export const idlService = IDL.Service({
   'addStockItem' : IDL.Func([IDL.Text, IDL.Text, IDL.Text], [], []),
@@ -86,6 +98,28 @@ export const idlService = IDL.Service({
       [],
     ),
   'updateStatus' : IDL.Func([IDL.Nat, IDL.Text], [IDL.Bool], []),
+  'addServiceJob' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Text, IDL.Nat, IDL.Nat, IDL.Nat, IDL.Text],
+      [IDL.Nat],
+      [],
+    ),
+  'getAllServiceJobs' : IDL.Func([], [IDL.Vec(ServiceJob)], ['query']),
+  'updateServiceJob' : IDL.Func(
+      [
+        IDL.Nat,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Nat,
+        IDL.Nat,
+        IDL.Nat,
+        IDL.Text,
+        IDL.Text,
+      ],
+      [IDL.Bool],
+      [],
+    ),
+  'deleteServiceJob' : IDL.Func([IDL.Nat], [IDL.Bool], []),
 });
 
 export const idlInitArgs = [];
@@ -121,7 +155,19 @@ export const idlFactory = ({ IDL }) => {
     'quantity' : IDL.Nat,
     'txType' : IDL.Text,
   });
-  
+  const ServiceJob = IDL.Record({
+    'id' : IDL.Nat,
+    'customerName' : IDL.Text,
+    'mobileNo' : IDL.Text,
+    'serviceType' : IDL.Text,
+    'charges' : IDL.Nat,
+    'advance' : IDL.Nat,
+    'paid' : IDL.Nat,
+    'status' : IDL.Text,
+    'notes' : IDL.Text,
+    'timestamp' : Time,
+  });
+
   return IDL.Service({
     'addStockItem' : IDL.Func([IDL.Text, IDL.Text, IDL.Text], [], []),
     'addStockTransaction' : IDL.Func(
@@ -173,6 +219,28 @@ export const idlFactory = ({ IDL }) => {
         [],
       ),
     'updateStatus' : IDL.Func([IDL.Nat, IDL.Text], [IDL.Bool], []),
+    'addServiceJob' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Text, IDL.Nat, IDL.Nat, IDL.Nat, IDL.Text],
+        [IDL.Nat],
+        [],
+      ),
+    'getAllServiceJobs' : IDL.Func([], [IDL.Vec(ServiceJob)], ['query']),
+    'updateServiceJob' : IDL.Func(
+        [
+          IDL.Nat,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Nat,
+          IDL.Nat,
+          IDL.Nat,
+          IDL.Text,
+          IDL.Text,
+        ],
+        [IDL.Bool],
+        [],
+      ),
+    'deleteServiceJob' : IDL.Func([IDL.Nat], [IDL.Bool], []),
   });
 };
 
